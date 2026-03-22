@@ -377,6 +377,49 @@
         ]
       }
     },
+    "/trips/{id}/dashboard": {
+      "get": {
+        "operationId": "TripsController_findDashboard",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripDashboardResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get trip dashboard with task progress and quick links",
+        "tags": [
+          "Trips"
+        ]
+      }
+    },
     "/trips/{tripId}/tasks": {
       "get": {
         "operationId": "ChecklistController_findAll",
@@ -1230,6 +1273,136 @@
         "required": [
           "upcoming",
           "past"
+        ]
+      },
+      "TaskProgressDto": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "number",
+            "description": "Number of completed tasks",
+            "example": 3
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of tasks",
+            "example": 8
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Completion percentage (0-100)",
+            "example": 37
+          }
+        },
+        "required": [
+          "completed",
+          "total",
+          "percentage"
+        ]
+      },
+      "NextPendingTaskDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Task ID",
+            "format": "uuid",
+            "example": "12345678-1234-1234-1234-123456789abc"
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title",
+            "example": "Book hotels"
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Task due date",
+            "example": "2026-04-05"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Task priority level",
+            "example": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "priority"
+        ]
+      },
+      "QuickLinksDto": {
+        "type": "object",
+        "properties": {
+          "checklist": {
+            "type": "string",
+            "description": "Link to trip checklist endpoint",
+            "example": "/trips/34ea6ea7-4a32-4832-8e0a-c10ba4f06673/tasks"
+          },
+          "packing": {
+            "type": "string",
+            "description": "Link to trip packing endpoint",
+            "example": "/trips/34ea6ea7-4a32-4832-8e0a-c10ba4f06673/packing"
+          },
+          "itinerary": {
+            "type": "string",
+            "description": "Link to trip itinerary endpoint",
+            "example": "/trips/34ea6ea7-4a32-4832-8e0a-c10ba4f06673/itinerary"
+          },
+          "documents": {
+            "type": "string",
+            "description": "Link to trip documents endpoint",
+            "example": "/trips/34ea6ea7-4a32-4832-8e0a-c10ba4f06673/documents"
+          }
+        },
+        "required": [
+          "checklist",
+          "packing",
+          "itinerary",
+          "documents"
+        ]
+      },
+      "TripDashboardResponseDto": {
+        "type": "object",
+        "properties": {
+          "trip": {
+            "description": "Trip summary",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TripResponseDto"
+              }
+            ]
+          },
+          "progress": {
+            "description": "Pre-trip task progress",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskProgressDto"
+              }
+            ]
+          },
+          "nextPendingTask": {
+            "description": "Next pending task (if any)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NextPendingTaskDto"
+              }
+            ]
+          },
+          "quickLinks": {
+            "description": "Quick links to trip resources",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuickLinksDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "trip",
+          "progress",
+          "quickLinks"
         ]
       },
       "CreateTripDto": {

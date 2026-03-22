@@ -24,6 +24,7 @@ import type { CurrentUserPayload } from '../auth/decorators/current-user.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
+import { TripDashboardResponseDto } from './dto/trip-dashboard-response.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
 import { TripsGroupedResponseDto } from './dto/trips-grouped-response.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
@@ -67,6 +68,21 @@ export class TripsController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<TripResponseDto> {
     return this.tripsService.findOne(id, user.sub);
+  }
+
+  @ApiOperation({
+    summary: 'Get trip dashboard with task progress and quick links',
+  })
+  @ApiParam({ name: 'id', description: 'Trip ID (UUID)' })
+  @ApiOkResponse({ type: TripDashboardResponseDto })
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  @Get(':id/dashboard')
+  findDashboard(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TripDashboardResponseDto> {
+    return this.tripsService.findDashboard(id, user.sub);
   }
 
   @ApiOperation({ summary: 'Create a new trip' })
