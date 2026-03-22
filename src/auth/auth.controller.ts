@@ -25,7 +25,7 @@ export class AuthController {
     description: 'Email already in use or invalid input',
   })
   @Post('register')
-  register(@Body() registerDto: RegisterDto) {
+  register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(registerDto);
   }
 
@@ -33,7 +33,7 @@ export class AuthController {
   @ApiOkResponse({ type: AuthResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @Post('login')
-  login(@Body() loginDto: LoginDto) {
+  login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
   }
 
@@ -42,7 +42,7 @@ export class AuthController {
   @ApiOkResponse({ type: TokenPairResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid or expired refresh token' })
   @Post('refresh')
-  refresh(@Body() body: RefreshTokenDto) {
+  refresh(@Body() body: RefreshTokenDto): Promise<TokenPairResponseDto> {
     return this.authService.refresh(body.refreshToken);
   }
 }

@@ -39,7 +39,7 @@ export class TripsController {
   @ApiOkResponse({ type: TripResponseDto, isArray: true })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   @Get()
-  findAll(@CurrentUser() user: CurrentUserPayload) {
+  findAll(@CurrentUser() user: CurrentUserPayload): Promise<TripResponseDto[]> {
     return this.tripsService.findAll(user.sub);
   }
 
@@ -52,7 +52,7 @@ export class TripsController {
   findOne(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<TripResponseDto> {
     return this.tripsService.findOne(id, user.sub);
   }
 
@@ -63,7 +63,7 @@ export class TripsController {
   create(
     @CurrentUser() user: CurrentUserPayload,
     @Body() createTripDto: CreateTripDto,
-  ) {
+  ): Promise<TripResponseDto> {
     return this.tripsService.create(user.sub, createTripDto);
   }
 
@@ -77,7 +77,7 @@ export class TripsController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateTripDto: UpdateTripDto,
-  ) {
+  ): Promise<TripResponseDto> {
     return this.tripsService.update(id, user.sub, updateTripDto);
   }
 
@@ -90,7 +90,7 @@ export class TripsController {
   remove(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<DeleteResponseDto> {
     return this.tripsService.remove(id, user.sub);
   }
 }

@@ -38,7 +38,9 @@ export class PackingController {
   @ApiOkResponse({ type: PackingItemResponseDto, isArray: true })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   @Get()
-  findAll(@Param('tripId', ParseUUIDPipe) tripId: string) {
+  findAll(
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<PackingItemResponseDto[]> {
     return this.packingService.findAll(tripId);
   }
 
@@ -50,7 +52,7 @@ export class PackingController {
   create(
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Body() createPackingItemDto: CreatePackingItemDto,
-  ) {
+  ): Promise<PackingItemResponseDto> {
     return this.packingService.create(tripId, createPackingItemDto);
   }
 
@@ -65,7 +67,7 @@ export class PackingController {
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePackingItemDto: UpdatePackingItemDto,
-  ) {
+  ): Promise<PackingItemResponseDto> {
     return this.packingService.update(tripId, id, updatePackingItemDto);
   }
 
@@ -79,7 +81,7 @@ export class PackingController {
   remove(
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<DeleteResponseDto> {
     return this.packingService.remove(tripId, id);
   }
 }

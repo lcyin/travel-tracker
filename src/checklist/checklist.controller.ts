@@ -38,7 +38,9 @@ export class ChecklistController {
   @ApiOkResponse({ type: TripTaskResponseDto, isArray: true })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   @Get()
-  findAll(@Param('tripId', ParseUUIDPipe) tripId: string) {
+  findAll(
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<TripTaskResponseDto[]> {
     return this.checklistService.findAll(tripId);
   }
 
@@ -50,7 +52,7 @@ export class ChecklistController {
   create(
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Body() createTripTaskDto: CreateTripTaskDto,
-  ) {
+  ): Promise<TripTaskResponseDto> {
     return this.checklistService.create(tripId, createTripTaskDto);
   }
 
@@ -65,7 +67,7 @@ export class ChecklistController {
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateTripTaskDto: UpdateTripTaskDto,
-  ) {
+  ): Promise<TripTaskResponseDto> {
     return this.checklistService.update(tripId, id, updateTripTaskDto);
   }
 
@@ -79,7 +81,7 @@ export class ChecklistController {
   remove(
     @Param('tripId', ParseUUIDPipe) tripId: string,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<DeleteResponseDto> {
     return this.checklistService.remove(tripId, id);
   }
 }
