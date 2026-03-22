@@ -10,6 +10,7 @@ import {
 import { User } from '../../auth/entities/user.entity';
 import { TripTask } from '../../checklist/entities/trip-task.entity';
 import { PackingItem } from '../../packing/entities/packing-item.entity';
+import { TripStatus, TripType } from '../enums/trip.enums';
 
 @Entity('trips')
 export class Trip {
@@ -27,6 +28,18 @@ export class Trip {
 
   @Column({ type: 'date', nullable: true })
   endDate?: string;
+
+  @Column({
+    type: 'varchar',
+    default: TripType.Leisure,
+  })
+  tripType!: TripType;
+
+  @Column({
+    type: 'varchar',
+    default: TripStatus.Planning,
+  })
+  status!: TripStatus;
 
   @Column()
   userId!: string;

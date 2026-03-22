@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
+import { TripsGroupedResponseDto } from './dto/trips-grouped-response.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { Trip } from './entities/trip.entity';
 
@@ -25,6 +26,34 @@ export class TripsService {
     });
 
     return trips.map((trip) => this.toTripResponse(trip));
+  }
+
+  async findGrouped(userId: string): Promise<TripsGroupedResponseDto> {
+    const trips = await this.findAll(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const grouped = trips.reduce<TripsGroupedResponseDto>(
+      (acc, trip) => {
+        const isPast =
+          typeof trip.endDate === 'string' &&
+          new Date(trip.endDate).getTime() < today.getTime();
+
+        if (isPast) {
+          acc.past.push(trip);
+        } else {
+          acc.upcoming.push(trip);
+        }
+
+        return acc;
+      },
+      {
+        upcoming: [],
+        past: [],
+      },
+    );
+
+    return grouped;
   }
 
   async findOne(id: string, userId: string): Promise<TripResponseDto> {
@@ -92,6 +121,8 @@ export class TripsService {
       destination: trip.destination,
       startDate: trip.startDate,
       endDate: trip.endDate,
+      tripType: trip.tripType,
+      status: trip.status,
       userId: trip.userId,
       createdAt: trip.createdAt,
       updatedAt: trip.updatedAt,

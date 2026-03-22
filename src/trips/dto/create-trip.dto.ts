@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import { TripStatus, TripType } from '../enums/trip.enums';
 
 export class CreateTripDto {
   @ApiProperty({
@@ -32,4 +33,22 @@ export class CreateTripDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiProperty({
+    description: 'Trip type',
+    enum: TripType,
+    example: TripType.Leisure,
+  })
+  @IsEnum(TripType)
+  tripType!: TripType;
+
+  @ApiPropertyOptional({
+    description: 'Trip lifecycle status',
+    enum: TripStatus,
+    example: TripStatus.Planning,
+    default: TripStatus.Planning,
+  })
+  @IsOptional()
+  @IsEnum(TripStatus)
+  status?: TripStatus;
 }

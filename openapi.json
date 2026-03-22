@@ -106,6 +106,41 @@
         ]
       }
     },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token"
+          }
+        },
+        "summary": "Logout and revoke refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/trips": {
       "get": {
         "operationId": "TripsController_findAll",
@@ -172,6 +207,36 @@
           }
         ],
         "summary": "Create a new trip",
+        "tags": [
+          "Trips"
+        ]
+      }
+    },
+    "/trips/grouped": {
+      "get": {
+        "operationId": "TripsController_findGrouped",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripsGroupedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List current user trips grouped by Upcoming and Past",
         "tags": [
           "Trips"
         ]
@@ -1050,6 +1115,19 @@
           "refreshToken"
         ]
       },
+      "LogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "loggedOut": {
+            "type": "boolean",
+            "description": "Whether the current session was logged out successfully",
+            "example": true
+          }
+        },
+        "required": [
+          "loggedOut"
+        ]
+      },
       "TripResponseDto": {
         "type": "object",
         "properties": {
@@ -1079,6 +1157,29 @@
             "description": "End date",
             "example": "2026-04-18"
           },
+          "tripType": {
+            "type": "string",
+            "description": "Trip type",
+            "enum": [
+              "leisure",
+              "business",
+              "family",
+              "road-trip",
+              "adventure",
+              "other"
+            ],
+            "example": "leisure"
+          },
+          "status": {
+            "type": "string",
+            "description": "Trip lifecycle status",
+            "enum": [
+              "planning",
+              "in-progress",
+              "completed"
+            ],
+            "example": "planning"
+          },
           "userId": {
             "type": "string",
             "description": "Owner user ID",
@@ -1101,9 +1202,34 @@
         "required": [
           "id",
           "title",
+          "tripType",
+          "status",
           "userId",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "TripsGroupedResponseDto": {
+        "type": "object",
+        "properties": {
+          "upcoming": {
+            "description": "Trips that are upcoming or currently active",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TripResponseDto"
+            }
+          },
+          "past": {
+            "description": "Trips that are already finished",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TripResponseDto"
+            }
+          }
+        },
+        "required": [
+          "upcoming",
+          "past"
         ]
       },
       "CreateTripDto": {
@@ -1128,10 +1254,35 @@
             "type": "string",
             "description": "Trip end date (ISO date)",
             "example": "2026-04-18"
+          },
+          "tripType": {
+            "type": "string",
+            "description": "Trip type",
+            "enum": [
+              "leisure",
+              "business",
+              "family",
+              "road-trip",
+              "adventure",
+              "other"
+            ],
+            "example": "leisure"
+          },
+          "status": {
+            "type": "string",
+            "description": "Trip lifecycle status",
+            "enum": [
+              "planning",
+              "in-progress",
+              "completed"
+            ],
+            "example": "planning",
+            "default": "planning"
           }
         },
         "required": [
-          "title"
+          "title",
+          "tripType"
         ]
       },
       "UpdateTripDto": {
@@ -1156,6 +1307,30 @@
             "type": "string",
             "description": "Trip end date (ISO date)",
             "example": "2026-04-18"
+          },
+          "tripType": {
+            "type": "string",
+            "description": "Trip type",
+            "enum": [
+              "leisure",
+              "business",
+              "family",
+              "road-trip",
+              "adventure",
+              "other"
+            ],
+            "example": "leisure"
+          },
+          "status": {
+            "type": "string",
+            "description": "Trip lifecycle status",
+            "enum": [
+              "planning",
+              "in-progress",
+              "completed"
+            ],
+            "example": "planning",
+            "default": "planning"
           }
         }
       },

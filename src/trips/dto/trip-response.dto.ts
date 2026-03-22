@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TripStatus, TripType } from '../enums/trip.enums';
 
 export class TripResponseDto {
   @ApiProperty({
@@ -31,6 +32,20 @@ export class TripResponseDto {
     example: '2026-04-18',
   })
   endDate?: string;
+
+  @ApiProperty({
+    description: 'Trip type',
+    enum: TripType,
+    example: TripType.Leisure,
+  })
+  tripType!: TripType;
+
+  @ApiProperty({
+    description: 'Trip lifecycle status',
+    enum: TripStatus,
+    example: TripStatus.Planning,
+  })
+  status!: TripStatus;
 
   @ApiProperty({
     description: 'Owner user ID',

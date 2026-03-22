@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { TripResponseDto } from './dto/trip-response.dto';
+import { TripsGroupedResponseDto } from './dto/trips-grouped-response.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { TripsService } from './trips.service';
 
@@ -41,6 +42,18 @@ export class TripsController {
   @Get()
   findAll(@CurrentUser() user: CurrentUserPayload): Promise<TripResponseDto[]> {
     return this.tripsService.findAll(user.sub);
+  }
+
+  @ApiOperation({
+    summary: 'List current user trips grouped by Upcoming and Past',
+  })
+  @ApiOkResponse({ type: TripsGroupedResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  @Get('grouped')
+  findGrouped(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<TripsGroupedResponseDto> {
+    return this.tripsService.findGrouped(user.sub);
   }
 
   @ApiOperation({ summary: 'Get a trip by ID' })
