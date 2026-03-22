@@ -21,7 +21,8 @@
     "typeorm": "typeorm-ts-node-commonjs -d typeorm.config.ts",
     "migration:generate": "yarn typeorm migration:generate src/migrations/InitSchema",
     "migration:run": "yarn typeorm migration:run",
-    "migration:revert": "yarn typeorm migration:revert"
+    "migration:revert": "yarn typeorm migration:revert",
+    "swagger:generate": "ts-node src/scripts/generate-swagger.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

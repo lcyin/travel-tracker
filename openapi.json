@@ -1,0 +1,1409 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email already in use or invalid input"
+          }
+        },
+        "summary": "Register a new user account",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "summary": "Login and receive access/refresh tokens",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token"
+          }
+        },
+        "summary": "Refresh JWT tokens using refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/trips": {
+      "get": {
+        "operationId": "TripsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TripResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List current user trips",
+        "tags": [
+          "Trips"
+        ]
+      },
+      "post": {
+        "operationId": "TripsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTripDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a new trip",
+        "tags": [
+          "Trips"
+        ]
+      }
+    },
+    "/trips/{id}": {
+      "get": {
+        "operationId": "TripsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get a trip by ID",
+        "tags": [
+          "Trips"
+        ]
+      },
+      "patch": {
+        "operationId": "TripsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTripDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update an existing trip",
+        "tags": [
+          "Trips"
+        ]
+      },
+      "delete": {
+        "operationId": "TripsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a trip",
+        "tags": [
+          "Trips"
+        ]
+      }
+    },
+    "/trips/{tripId}/tasks": {
+      "get": {
+        "operationId": "ChecklistController_findAll",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TripTaskResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List all tasks for a trip",
+        "tags": [
+          "Checklist"
+        ]
+      },
+      "post": {
+        "operationId": "ChecklistController_create",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTripTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a task for a trip",
+        "tags": [
+          "Checklist"
+        ]
+      }
+    },
+    "/trips/{tripId}/tasks/{id}": {
+      "patch": {
+        "operationId": "ChecklistController_update",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Task ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTripTaskDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripTaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip task not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update a task in a trip checklist",
+        "tags": [
+          "Checklist"
+        ]
+      },
+      "delete": {
+        "operationId": "ChecklistController_remove",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Task ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip task not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a task from a trip checklist",
+        "tags": [
+          "Checklist"
+        ]
+      }
+    },
+    "/trips/{tripId}/packing": {
+      "get": {
+        "operationId": "PackingController_findAll",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PackingItemResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List packing items for a trip",
+        "tags": [
+          "Packing"
+        ]
+      },
+      "post": {
+        "operationId": "PackingController_create",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackingItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackingItemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a packing item for a trip",
+        "tags": [
+          "Packing"
+        ]
+      }
+    },
+    "/trips/{tripId}/packing/{id}": {
+      "patch": {
+        "operationId": "PackingController_update",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Packing item ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePackingItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackingItemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Packing item not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update a packing item",
+        "tags": [
+          "Packing"
+        ]
+      },
+      "delete": {
+        "operationId": "PackingController_remove",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Packing item ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Packing item not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a packing item",
+        "tags": [
+          "Packing"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Check API and database health status",
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Travel Tracker API",
+    "description": "API documentation for Travel Tracker backend services",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Enter access token"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Unique user email",
+            "example": "traveler@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "minLength": 8,
+            "example": "P@ssword123"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name shown in the app",
+            "example": "Kevin"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User ID",
+            "format": "uuid",
+            "example": "a9b07db3-becf-4f7c-b627-2d56f68ca2dc"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email",
+            "example": "traveler@example.com"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Kevin"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access.signature"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature"
+          },
+          "user": {
+            "description": "Authenticated user profile",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "user"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email",
+            "example": "traveler@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "minLength": 8,
+            "example": "P@ssword123"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "TokenPairResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.access.signature"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken"
+        ]
+      },
+      "TripResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "34ea6ea7-4a32-4832-8e0a-c10ba4f06673"
+          },
+          "title": {
+            "type": "string",
+            "description": "Trip title",
+            "example": "Japan Spring Adventure"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Trip destination",
+            "example": "Tokyo, Japan"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Start date",
+            "example": "2026-04-10"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "End date",
+            "example": "2026-04-18"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Owner user ID",
+            "format": "uuid",
+            "example": "a9b07db3-becf-4f7c-b627-2d56f68ca2dc"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "userId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateTripDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Trip title",
+            "example": "Japan Spring Adventure"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Primary destination",
+            "example": "Tokyo, Japan"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Trip start date (ISO date)",
+            "example": "2026-04-10"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Trip end date (ISO date)",
+            "example": "2026-04-18"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "UpdateTripDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Trip title",
+            "example": "Japan Spring Adventure"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Primary destination",
+            "example": "Tokyo, Japan"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Trip start date (ISO date)",
+            "example": "2026-04-10"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "Trip end date (ISO date)",
+            "example": "2026-04-18"
+          }
+        }
+      },
+      "DeleteResponseDto": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "description": "Indicates whether the resource was deleted",
+            "example": true
+          },
+          "id": {
+            "type": "string",
+            "description": "Deleted resource identifier",
+            "format": "uuid",
+            "example": "1f8002e3-8f52-43f7-9c8d-e3a2603c1348"
+          }
+        },
+        "required": [
+          "deleted",
+          "id"
+        ]
+      },
+      "TripTaskResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Task ID",
+            "format": "uuid",
+            "example": "fef42b8f-133f-4c0f-a7b7-183d44bbf63c"
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title",
+            "example": "Buy travel insurance"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Completion status",
+            "example": false
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Task due date",
+            "example": "2026-03-30T10:00:00.000Z"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Task priority",
+            "example": 1
+          },
+          "tripId": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "34ea6ea7-4a32-4832-8e0a-c10ba4f06673"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "isCompleted",
+          "priority",
+          "tripId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateTripTaskDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Checklist task title",
+            "example": "Book JR Pass"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Task completion status",
+            "default": false
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "Task due date as ISO string",
+            "example": "2026-04-01T10:00:00.000Z"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Task priority from 0 (low) upward",
+            "default": 0
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "UpdateTripTaskDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Checklist task title",
+            "example": "Book JR Pass"
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Task completion status",
+            "default": false
+          },
+          "dueDate": {
+            "type": "string",
+            "description": "Task due date as ISO string",
+            "example": "2026-04-01T10:00:00.000Z"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Task priority from 0 (low) upward",
+            "default": 0
+          }
+        }
+      },
+      "PackingItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Packing item ID",
+            "format": "uuid",
+            "example": "5fb3737f-100d-4df4-8498-e56f6690beaf"
+          },
+          "name": {
+            "type": "string",
+            "description": "Packing item name",
+            "example": "Passport"
+          },
+          "isPacked": {
+            "type": "boolean",
+            "description": "Packed status",
+            "example": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity required",
+            "example": 1
+          },
+          "category": {
+            "type": "string",
+            "description": "Category",
+            "example": "documents"
+          },
+          "tripId": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "34ea6ea7-4a32-4832-8e0a-c10ba4f06673"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-03-22T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isPacked",
+          "quantity",
+          "tripId",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreatePackingItemDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Packing item name",
+            "example": "Passport"
+          },
+          "isPacked": {
+            "type": "boolean",
+            "description": "Whether item has been packed",
+            "default": false
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Number of units needed",
+            "default": 1,
+            "minimum": 1
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category label",
+            "example": "documents"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdatePackingItemDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Packing item name",
+            "example": "Passport"
+          },
+          "isPacked": {
+            "type": "boolean",
+            "description": "Whether item has been packed",
+            "default": false
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Number of units needed",
+            "default": 1,
+            "minimum": 1
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category label",
+            "example": "documents"
+          }
+        }
+      }
+    }
+  }
+}
