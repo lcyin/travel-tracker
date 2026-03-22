@@ -9,6 +9,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import type { SignOptions } from 'jsonwebtoken';
 import { Repository } from 'typeorm';
+import {
+  AuthResponseDto,
+  TokenPairResponseDto,
+  UserResponseDto,
+} from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { User } from './entities/user.entity';
@@ -22,7 +27,7 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const existingUser = await this.usersRepository.findOne({
       where: { email: registerDto.email },
     });
@@ -47,7 +52,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.usersRepository.findOne({
       where: { email: loginDto.email },
     });
@@ -73,7 +78,7 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string): Promise<TokenPairResponseDto> {
     try {
       const payload = await this.jwtService.verifyAsync<{
         sub: string;
@@ -99,7 +104,7 @@ export class AuthService {
     }
   }
 
-  private async issueTokens(user: User) {
+  private async issueTokens(user: User): Promise<TokenPairResponseDto> {
     const payload = { sub: user.id, email: user.email };
     const accessExpiresIn = this.configService.get<string>(
       'JWT_EXPIRATION',
@@ -123,7 +128,7 @@ export class AuthService {
     };
   }
 
-  private toSafeUser(user: User) {
+  private toSafeUser(user: User): UserResponseDto {
     return {
       id: user.id,
       email: user.email,
