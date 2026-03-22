@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TripStatus, TripType } from '../enums/trip.enums';
+import { TripClimate, TripStatus, TripType } from '../enums/trip.enums';
 
 export class TripResponseDto {
   @ApiProperty({
@@ -46,6 +46,13 @@ export class TripResponseDto {
     example: TripStatus.Planning,
   })
   status!: TripStatus;
+
+  @ApiPropertyOptional({
+    description: 'Expected climate at destination',
+    enum: TripClimate,
+    example: TripClimate.Warm,
+  })
+  climate?: TripClimate;
 
   @ApiProperty({
     description: 'Owner user ID',

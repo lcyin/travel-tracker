@@ -189,6 +189,7 @@ export class TripsService {
       endDate: trip.endDate,
       tripType: trip.tripType,
       status: trip.status,
+      climate: trip.climate,
       userId: trip.userId,
       createdAt: trip.createdAt,
       updatedAt: trip.updatedAt,

@@ -10,7 +10,7 @@ import {
 import { User } from '../../auth/entities/user.entity';
 import { TripTask } from '../../checklist/entities/trip-task.entity';
 import { PackingItem } from '../../packing/entities/packing-item.entity';
-import { TripStatus, TripType } from '../enums/trip.enums';
+import { TripStatus, TripClimate, TripType } from '../enums/trip.enums';
 
 @Entity('trips')
 export class Trip {
@@ -40,6 +40,12 @@ export class Trip {
     default: TripStatus.Planning,
   })
   status!: TripStatus;
+
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  climate?: TripClimate;
 
   @Column()
   userId!: string;

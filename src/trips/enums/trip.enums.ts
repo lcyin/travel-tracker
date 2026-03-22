@@ -12,3 +12,10 @@ export enum TripType {
   Adventure = 'adventure',
   Other = 'other',
 }
+
+export enum TripClimate {
+  Warm = 'warm',
+  Cold = 'cold',
+  Temperate = 'temperate',
+  Tropical = 'tropical',
+}

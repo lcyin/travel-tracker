@@ -823,6 +823,105 @@
         ]
       }
     },
+    "/trips/{tripId}/packing/suggestions": {
+      "get": {
+        "operationId": "PackingController_getSuggestions",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackingSuggestionsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get AI-suggested packing items based on trip type, climate, and duration",
+        "tags": [
+          "Packing"
+        ]
+      }
+    },
+    "/trips/{tripId}/packing/suggestions/accept": {
+      "post": {
+        "operationId": "PackingController_acceptSuggestions",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptPackingSuggestionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PackingItemResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Accept selected packing suggestions and add them to the trip packing list",
+        "tags": [
+          "Packing"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_check",
@@ -1220,6 +1319,17 @@
             ],
             "example": "planning"
           },
+          "climate": {
+            "type": "string",
+            "description": "Expected climate at destination",
+            "enum": [
+              "warm",
+              "cold",
+              "temperate",
+              "tropical"
+            ],
+            "example": "warm"
+          },
           "userId": {
             "type": "string",
             "description": "Owner user ID",
@@ -1454,6 +1564,17 @@
             ],
             "example": "planning",
             "default": "planning"
+          },
+          "climate": {
+            "type": "string",
+            "description": "Expected climate at destination",
+            "enum": [
+              "warm",
+              "cold",
+              "temperate",
+              "tropical"
+            ],
+            "example": "warm"
           }
         },
         "required": [
@@ -1507,6 +1628,17 @@
             ],
             "example": "planning",
             "default": "planning"
+          },
+          "climate": {
+            "type": "string",
+            "description": "Expected climate at destination",
+            "enum": [
+              "warm",
+              "cold",
+              "temperate",
+              "tropical"
+            ],
+            "example": "warm"
           }
         }
       },
@@ -1821,6 +1953,57 @@
             "example": "documents"
           }
         }
+      },
+      "PackingSuggestionsResponseDto": {
+        "type": "object",
+        "properties": {
+          "suggestions": {
+            "type": "object",
+            "description": "Suggested packing items grouped by category",
+            "example": {
+              "Clothes": [
+                {
+                  "key": "Clothes::T-shirts",
+                  "name": "T-shirts",
+                  "category": "Clothes",
+                  "quantity": 5
+                }
+              ],
+              "Toiletries": [],
+              "Electronics": [],
+              "Documents": [],
+              "Misc": []
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of suggested items",
+            "example": 12
+          }
+        },
+        "required": [
+          "suggestions",
+          "total"
+        ]
+      },
+      "AcceptPackingSuggestionsDto": {
+        "type": "object",
+        "properties": {
+          "keys": {
+            "description": "List of suggestion keys to accept. Pass all keys from suggestions response to accept all.",
+            "example": [
+              "Clothes::T-shirts",
+              "Documents::Passport"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "keys"
+        ]
       }
     }
   }

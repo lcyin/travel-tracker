@@ -34,7 +34,7 @@ export class TaskGeneratorService {
       const startDate = new Date(tripStartDate);
       if (isNaN(startDate.getTime())) {
         this.logger.warn(
-          `Invalid start date for trip ${tripId}: ${tripStartDate}`,
+          `Invalid start date for trip ${tripId}: ${String(tripStartDate)}`,
         );
         return;
       }

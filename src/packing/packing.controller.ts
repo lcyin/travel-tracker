@@ -19,19 +19,27 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
+import { AcceptPackingSuggestionsDto } from './dto/accept-packing-suggestions.dto';
 import { CreatePackingItemDto } from './dto/create-packing-item.dto';
 import { PackingItemResponseDto } from './dto/packing-item-response.dto';
+import { PackingSuggestionsResponseDto } from './dto/packing-suggestions-response.dto';
 import { UpdatePackingItemDto } from './dto/update-packing-item.dto';
 import { PackingService } from './packing.service';
+import { PackingSuggestionsService } from './services/packing-suggestions.service';
 
 @ApiTags('Packing')
 @ApiBearerAuth('access-token')
 @Controller('trips/:tripId/packing')
 @UseGuards(JwtAuthGuard)
 export class PackingController {
-  constructor(private readonly packingService: PackingService) {}
+  constructor(
+    private readonly packingService: PackingService,
+    private readonly packingSuggestionsService: PackingSuggestionsService,
+  ) {}
 
   @ApiOperation({ summary: 'List packing items for a trip' })
   @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
@@ -83,5 +91,42 @@ export class PackingController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<DeleteResponseDto> {
     return this.packingService.remove(tripId, id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Get AI-suggested packing items based on trip type, climate, and duration',
+  })
+  @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
+  @ApiOkResponse({ type: PackingSuggestionsResponseDto })
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  @Get('suggestions')
+  getSuggestions(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<PackingSuggestionsResponseDto> {
+    return this.packingSuggestionsService.getSuggestions(tripId, user.sub);
+  }
+
+  @ApiOperation({
+    summary:
+      'Accept selected packing suggestions and add them to the trip packing list',
+  })
+  @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
+  @ApiCreatedResponse({ type: PackingItemResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  @Post('suggestions/accept')
+  acceptSuggestions(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Body() dto: AcceptPackingSuggestionsDto,
+  ): Promise<PackingItemResponseDto[]> {
+    return this.packingSuggestionsService.acceptSuggestions(
+      tripId,
+      user.sub,
+      dto,
+    );
   }
 }
