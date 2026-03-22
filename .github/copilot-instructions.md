@@ -150,6 +150,10 @@
 - Implement runtime response mapping in services (entity → response DTO) with private mapper methods (e.g., `toTripResponse(trip)`) to ensure JSON output matches the documented schema.
 - Create a shared `DeleteResponseDto` in `common/dto/` for all delete endpoints.
 - Enable `persistAuthorization: true` in `SwaggerModule.setup()` options so the token survives page reloads during development.
+- Keep a programmatic schema generator script in `src/scripts/generate-swagger.ts` that creates `openapi.json` via `SwaggerModule.createDocument()` without calling `app.listen()`.
+- Add and maintain a package script `swagger:generate` (e.g., `ts-node src/scripts/generate-swagger.ts`) so schema export does not require a running server.
+- Run `yarn swagger:generate` after API contract changes (routes/DTOs/responses/guards) and commit the updated `openapi.json` when API docs are versioned in the repository.
+- Reuse the same `DocumentBuilder` config (title, description, version, bearer scheme) in both app bootstrap and generator script to prevent schema drift.
 
 ## Build and Test
 
