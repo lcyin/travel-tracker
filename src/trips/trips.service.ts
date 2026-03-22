@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
@@ -36,6 +40,8 @@ export class TripsService {
     userId: string,
     createTripDto: CreateTripDto,
   ): Promise<TripResponseDto> {
+    this.validateDateRange(createTripDto.startDate, createTripDto.endDate);
+
     const trip = this.tripsRepository.create({
       ...createTripDto,
       userId,
@@ -57,6 +63,11 @@ export class TripsService {
     if (!existingTrip) {
       throw new NotFoundException('Trip not found');
     }
+
+    this.validateDateRange(
+      updateTripDto.startDate ?? existingTrip.startDate,
+      updateTripDto.endDate ?? existingTrip.endDate,
+    );
 
     Object.assign(existingTrip, updateTripDto);
     const updatedTrip = await this.tripsRepository.save(existingTrip);
@@ -85,5 +96,18 @@ export class TripsService {
       createdAt: trip.createdAt,
       updatedAt: trip.updatedAt,
     };
+  }
+
+  private validateDateRange(startDate?: string, endDate?: string): void {
+    if (!startDate || !endDate) {
+      return;
+    }
+
+    const startDateTimestamp = new Date(startDate).getTime();
+    const endDateTimestamp = new Date(endDate).getTime();
+
+    if (endDateTimestamp <= startDateTimestamp) {
+      throw new BadRequestException('endDate must be after startDate');
+    }
   }
 }
