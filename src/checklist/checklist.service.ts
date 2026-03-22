@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
+import { ChecklistGroupedResponseDto } from './dto/checklist-grouped-response.dto';
 import { CreateTripTaskDto } from './dto/create-trip-task.dto';
 import { TripTaskResponseDto } from './dto/trip-task-response.dto';
 import { UpdateTripTaskDto } from './dto/update-trip-task.dto';
@@ -14,13 +15,29 @@ export class ChecklistService {
     private readonly tripTasksRepository: Repository<TripTask>,
   ) {}
 
-  async findAll(tripId: string): Promise<TripTaskResponseDto[]> {
-    const tripTasks = await this.tripTasksRepository.find({
+  async findGrouped(tripId: string): Promise<ChecklistGroupedResponseDto> {
+    const allTasks = await this.tripTasksRepository.find({
       where: { tripId },
-      order: { createdAt: 'ASC' },
     });
 
-    return tripTasks.map((tripTask) => this.toTripTaskResponse(tripTask));
+    const sortByDueDate = (a: TripTask, b: TripTask): number => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.getTime() - b.dueDate.getTime();
+    };
+
+    const pending = allTasks
+      .filter((t) => !t.isCompleted)
+      .sort(sortByDueDate)
+      .map((t) => this.toTripTaskResponse(t));
+
+    const done = allTasks
+      .filter((t) => t.isCompleted)
+      .sort(sortByDueDate)
+      .map((t) => this.toTripTaskResponse(t));
+
+    return { pending, done };
   }
 
   async create(
@@ -85,6 +102,7 @@ export class ChecklistService {
       dueDate: tripTask.dueDate,
       priority: tripTask.priority,
       category: tripTask.category,
+      notes: tripTask.notes,
       tripId: tripTask.tripId,
       createdAt: tripTask.createdAt,
       updatedAt: tripTask.updatedAt,

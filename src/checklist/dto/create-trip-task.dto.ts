@@ -17,6 +17,14 @@ export class CreateTripTaskDto {
   title!: string;
 
   @ApiPropertyOptional({
+    description: 'Task category',
+    example: 'Logistics',
+  })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({
     description: 'Task completion status',
     default: false,
   })
@@ -40,4 +48,12 @@ export class CreateTripTaskDto {
   @IsInt()
   @Min(0)
   priority?: number;
+
+  @ApiPropertyOptional({
+    description: 'Optional notes for the task',
+    example: 'Check if passport is valid for at least 6 months',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

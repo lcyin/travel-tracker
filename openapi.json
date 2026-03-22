@@ -422,7 +422,7 @@
     },
     "/trips/{tripId}/tasks": {
       "get": {
-        "operationId": "ChecklistController_findAll",
+        "operationId": "ChecklistController_findGrouped",
         "parameters": [
           {
             "name": "tripId",
@@ -440,10 +440,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TripTaskResponseDto"
-                  }
+                  "$ref": "#/components/schemas/ChecklistGroupedResponseDto"
                 }
               }
             }
@@ -457,7 +454,7 @@
             "access-token": []
           }
         ],
-        "summary": "List all tasks for a trip",
+        "summary": "List trip tasks grouped by Pending and Done, sorted by due date",
         "tags": [
           "Checklist"
         ]
@@ -1562,6 +1559,11 @@
             "description": "Task category",
             "example": "Logistics"
           },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes for the task",
+            "example": "Check if passport is valid for at least 6 months"
+          },
           "tripId": {
             "type": "string",
             "description": "Trip ID",
@@ -1591,6 +1593,29 @@
           "updatedAt"
         ]
       },
+      "ChecklistGroupedResponseDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "description": "Pending (incomplete) tasks sorted by due date",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TripTaskResponseDto"
+            }
+          },
+          "done": {
+            "description": "Done (completed) tasks sorted by due date",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TripTaskResponseDto"
+            }
+          }
+        },
+        "required": [
+          "pending",
+          "done"
+        ]
+      },
       "CreateTripTaskDto": {
         "type": "object",
         "properties": {
@@ -1598,6 +1623,11 @@
             "type": "string",
             "description": "Checklist task title",
             "example": "Book JR Pass"
+          },
+          "category": {
+            "type": "string",
+            "description": "Task category",
+            "example": "Logistics"
           },
           "isCompleted": {
             "type": "boolean",
@@ -1613,6 +1643,11 @@
             "type": "number",
             "description": "Task priority from 0 (low) upward",
             "default": 0
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes for the task",
+            "example": "Check if passport is valid for at least 6 months"
           }
         },
         "required": [
@@ -1627,6 +1662,11 @@
             "description": "Checklist task title",
             "example": "Book JR Pass"
           },
+          "category": {
+            "type": "string",
+            "description": "Task category",
+            "example": "Logistics"
+          },
           "isCompleted": {
             "type": "boolean",
             "description": "Task completion status",
@@ -1641,6 +1681,11 @@
             "type": "number",
             "description": "Task priority from 0 (low) upward",
             "default": 0
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes for the task",
+            "example": "Check if passport is valid for at least 6 months"
           }
         }
       },

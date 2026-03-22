@@ -28,6 +28,9 @@ export class TripTask {
   @Column({ type: 'varchar', nullable: true })
   category?: string;
 
+  @Column({ type: 'text', nullable: true })
+  notes?: string;
+
   @Column()
   tripId!: string;
 

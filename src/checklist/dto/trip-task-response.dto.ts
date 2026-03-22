@@ -38,6 +38,12 @@ export class TripTaskResponseDto {
   })
   category?: string;
 
+  @ApiPropertyOptional({
+    description: 'Optional notes for the task',
+    example: 'Check if passport is valid for at least 6 months',
+  })
+  notes?: string;
+
   @ApiProperty({
     description: 'Trip ID',
     format: 'uuid',

@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
+import { ChecklistGroupedResponseDto } from './dto/checklist-grouped-response.dto';
 import { CreateTripTaskDto } from './dto/create-trip-task.dto';
 import { TripTaskResponseDto } from './dto/trip-task-response.dto';
 import { UpdateTripTaskDto } from './dto/update-trip-task.dto';
@@ -33,15 +34,17 @@ import { ChecklistService } from './checklist.service';
 export class ChecklistController {
   constructor(private readonly checklistService: ChecklistService) {}
 
-  @ApiOperation({ summary: 'List all tasks for a trip' })
+  @ApiOperation({
+    summary: 'List trip tasks grouped by Pending and Done, sorted by due date',
+  })
   @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
-  @ApiOkResponse({ type: TripTaskResponseDto, isArray: true })
+  @ApiOkResponse({ type: ChecklistGroupedResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   @Get()
-  findAll(
+  findGrouped(
     @Param('tripId', ParseUUIDPipe) tripId: string,
-  ): Promise<TripTaskResponseDto[]> {
-    return this.checklistService.findAll(tripId);
+  ): Promise<ChecklistGroupedResponseDto> {
+    return this.checklistService.findGrouped(tripId);
   }
 
   @ApiOperation({ summary: 'Create a task for a trip' })
