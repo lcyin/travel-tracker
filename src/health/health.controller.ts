@@ -1,10 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   HealthCheck,
   HealthCheckService,
   TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
 
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(
@@ -12,6 +14,7 @@ export class HealthController {
     private readonly typeOrm: TypeOrmHealthIndicator,
   ) {}
 
+  @ApiOperation({ summary: 'Check API and database health status' })
   @Get()
   @HealthCheck()
   check() {
