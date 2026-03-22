@@ -132,6 +132,25 @@
 - Access config via `ConfigService` injection — never use `process.env` directly in services.
 - Validate all environment variables at application startup.
 
+## Swagger / OpenAPI
+
+- Use `@nestjs/swagger` with `DocumentBuilder` and `SwaggerModule` to generate OpenAPI docs at `/docs`.
+- Add `@ApiTags()` on every controller to group endpoints by feature (e.g., `@ApiTags('Trips')`).
+- Add `@ApiOperation({ summary: '...' })` on every route handler to describe the endpoint purpose.
+- Add `@ApiBearerAuth('access-token')` on controllers/routes that require JWT authentication.
+- Annotate path and query parameters with `@ApiParam()` and `@ApiQuery()`.
+- Decorate every DTO property with `@ApiProperty()` or `@ApiPropertyOptional()` including `description`, `example`, and `format` where appropriate.
+- Use `PartialType()` from `@nestjs/swagger` (not `@nestjs/mapped-types`) for update DTOs so the Swagger schema correctly marks all fields as optional.
+- Create dedicated response DTO classes (e.g., `TripResponseDto`, `AuthResponseDto`) — never return raw entities from controllers.
+- Add explicit Swagger response decorators on every route handler:
+  - `@ApiOkResponse({ type: ResponseDto })` or `@ApiCreatedResponse({ type: ResponseDto })` for success.
+  - `@ApiNotFoundResponse()`, `@ApiUnauthorizedResponse()`, `@ApiBadRequestResponse()` for error cases.
+  - Use `isArray: true` when returning arrays: `@ApiOkResponse({ type: Dto, isArray: true })`.
+- Add explicit return type annotations on all controller methods (e.g., `): Promise<TripResponseDto>`).
+- Implement runtime response mapping in services (entity → response DTO) with private mapper methods (e.g., `toTripResponse(trip)`) to ensure JSON output matches the documented schema.
+- Create a shared `DeleteResponseDto` in `common/dto/` for all delete endpoints.
+- Enable `persistAuthorization: true` in `SwaggerModule.setup()` options so the token survives page reloads during development.
+
 ## Build and Test
 
 ```bash
