@@ -10,6 +10,7 @@ import {
 } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto, TokenPairResponseDto } from './dto/auth-response.dto';
+import { LogoutResponseDto } from './dto/logout-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
@@ -44,5 +45,14 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() body: RefreshTokenDto): Promise<TokenPairResponseDto> {
     return this.authService.refresh(body.refreshToken);
+  }
+
+  @ApiOperation({ summary: 'Logout and revoke refresh token' })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired refresh token' })
+  @Post('logout')
+  logout(@Body() body: RefreshTokenDto): Promise<LogoutResponseDto> {
+    return this.authService.logout(body.refreshToken);
   }
 }
