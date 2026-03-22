@@ -1,6 +1,15 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
+import { AuthResponseDto, TokenPairResponseDto } from './dto/auth-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
@@ -11,12 +20,18 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @ApiOperation({ summary: 'Register a new user account' })
+  @ApiCreatedResponse({ type: AuthResponseDto })
+  @ApiBadRequestResponse({
+    description: 'Email already in use or invalid input',
+  })
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @ApiOperation({ summary: 'Login and receive access/refresh tokens' })
+  @ApiOkResponse({ type: AuthResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
@@ -24,6 +39,8 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Refresh JWT tokens using refresh token' })
   @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({ type: TokenPairResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired refresh token' })
   @Post('refresh')
   refresh(@Body() body: RefreshTokenDto) {
     return this.authService.refresh(body.refreshToken);
