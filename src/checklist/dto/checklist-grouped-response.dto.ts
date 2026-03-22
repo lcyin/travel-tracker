@@ -3,7 +3,15 @@ import { TripTaskResponseDto } from './trip-task-response.dto';
 
 export class ChecklistGroupedResponseDto {
   @ApiProperty({
-    description: 'Pending (incomplete) tasks sorted by due date',
+    description:
+      'Overdue tasks (dueDate < today, not completed), sorted by due date',
+    type: TripTaskResponseDto,
+    isArray: true,
+  })
+  overdue!: TripTaskResponseDto[];
+
+  @ApiProperty({
+    description: 'Pending (incomplete, not overdue) tasks sorted by due date',
     type: TripTaskResponseDto,
     isArray: true,
   })

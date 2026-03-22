@@ -1289,12 +1289,18 @@
             "type": "number",
             "description": "Completion percentage (0-100)",
             "example": 37
+          },
+          "overdueCount": {
+            "type": "number",
+            "description": "Number of overdue tasks (dueDate < today and not completed)",
+            "example": 2
           }
         },
         "required": [
           "completed",
           "total",
-          "percentage"
+          "percentage",
+          "overdueCount"
         ]
       },
       "NextPendingTaskDto": {
@@ -1543,6 +1549,11 @@
             "description": "Completion status",
             "example": false
           },
+          "isOverdue": {
+            "type": "boolean",
+            "description": "Whether the task is overdue (dueDate < today and not completed)",
+            "example": false
+          },
           "dueDate": {
             "format": "date-time",
             "type": "string",
@@ -1587,6 +1598,7 @@
           "id",
           "title",
           "isCompleted",
+          "isOverdue",
           "priority",
           "tripId",
           "createdAt",
@@ -1596,8 +1608,15 @@
       "ChecklistGroupedResponseDto": {
         "type": "object",
         "properties": {
+          "overdue": {
+            "description": "Overdue tasks (dueDate < today, not completed), sorted by due date",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TripTaskResponseDto"
+            }
+          },
           "pending": {
-            "description": "Pending (incomplete) tasks sorted by due date",
+            "description": "Pending (incomplete, not overdue) tasks sorted by due date",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TripTaskResponseDto"
@@ -1612,6 +1631,7 @@
           }
         },
         "required": [
+          "overdue",
           "pending",
           "done"
         ]

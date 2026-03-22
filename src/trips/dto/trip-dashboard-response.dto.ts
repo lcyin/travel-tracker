@@ -19,6 +19,12 @@ export class TaskProgressDto {
     example: 37,
   })
   percentage!: number;
+
+  @ApiProperty({
+    description: 'Number of overdue tasks (dueDate < today and not completed)',
+    example: 2,
+  })
+  overdueCount!: number;
 }
 
 export class NextPendingTaskDto {

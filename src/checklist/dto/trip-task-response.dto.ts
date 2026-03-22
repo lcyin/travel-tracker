@@ -20,6 +20,13 @@ export class TripTaskResponseDto {
   })
   isCompleted!: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether the task is overdue (dueDate < today and not completed)',
+    example: false,
+  })
+  isOverdue!: boolean;
+
   @ApiPropertyOptional({
     description: 'Task due date',
     example: '2026-03-30T10:00:00.000Z',

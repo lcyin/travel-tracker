@@ -88,11 +88,19 @@ export class TripsService {
       order: { dueDate: 'ASC' },
     });
 
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
     const completed = tasks.filter((t) => t.isCompleted).length;
     const total = tasks.length;
     const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+    const overdueCount = tasks.filter(
+      (t) => !t.isCompleted && !!t.dueDate && t.dueDate < now,
+    ).length;
 
-    const pendingTasks = tasks.filter((t) => !t.isCompleted);
+    const pendingTasks = tasks.filter(
+      (t) => !t.isCompleted && !(!!t.dueDate && t.dueDate < now),
+    );
     const nextPendingTask =
       pendingTasks.length > 0
         ? this.toNextPendingTaskDto(pendingTasks[0])
@@ -104,6 +112,7 @@ export class TripsService {
         completed,
         total,
         percentage,
+        overdueCount,
       },
       nextPendingTask,
       quickLinks: {

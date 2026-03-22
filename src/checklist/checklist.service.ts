@@ -20,6 +20,12 @@ export class ChecklistService {
       where: { tripId },
     });
 
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const isOverdue = (t: TripTask): boolean =>
+      !t.isCompleted && !!t.dueDate && t.dueDate < now;
+
     const sortByDueDate = (a: TripTask, b: TripTask): number => {
       if (!a.dueDate && !b.dueDate) return 0;
       if (!a.dueDate) return 1;
@@ -27,8 +33,13 @@ export class ChecklistService {
       return a.dueDate.getTime() - b.dueDate.getTime();
     };
 
+    const overdue = allTasks
+      .filter((t) => isOverdue(t))
+      .sort(sortByDueDate)
+      .map((t) => this.toTripTaskResponse(t));
+
     const pending = allTasks
-      .filter((t) => !t.isCompleted)
+      .filter((t) => !t.isCompleted && !isOverdue(t))
       .sort(sortByDueDate)
       .map((t) => this.toTripTaskResponse(t));
 
@@ -37,7 +48,7 @@ export class ChecklistService {
       .sort(sortByDueDate)
       .map((t) => this.toTripTaskResponse(t));
 
-    return { pending, done };
+    return { overdue, pending, done };
   }
 
   async create(
@@ -95,10 +106,16 @@ export class ChecklistService {
   }
 
   private toTripTaskResponse(tripTask: TripTask): TripTaskResponseDto {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const isOverdue =
+      !tripTask.isCompleted && !!tripTask.dueDate && tripTask.dueDate < now;
+
     return {
       id: tripTask.id,
       title: tripTask.title,
       isCompleted: tripTask.isCompleted,
+      isOverdue,
       dueDate: tripTask.dueDate,
       priority: tripTask.priority,
       category: tripTask.category,
