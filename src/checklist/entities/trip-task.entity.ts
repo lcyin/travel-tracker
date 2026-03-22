@@ -25,6 +25,9 @@ export class TripTask {
   @Column({ default: 0 })
   priority!: number;
 
+  @Column({ type: 'varchar', nullable: true })
+  category?: string;
+
   @Column()
   tripId!: string;
 

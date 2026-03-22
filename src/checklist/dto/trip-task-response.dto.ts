@@ -32,6 +32,12 @@ export class TripTaskResponseDto {
   })
   priority!: number;
 
+  @ApiPropertyOptional({
+    description: 'Task category',
+    example: 'Logistics',
+  })
+  category?: string;
+
   @ApiProperty({
     description: 'Trip ID',
     format: 'uuid',

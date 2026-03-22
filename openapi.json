@@ -1557,6 +1557,11 @@
             "description": "Task priority",
             "example": 1
           },
+          "category": {
+            "type": "string",
+            "description": "Task category",
+            "example": "Logistics"
+          },
           "tripId": {
             "type": "string",
             "description": "Trip ID",

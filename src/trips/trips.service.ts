@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TripTask } from '../checklist/entities/trip-task.entity';
+import { TaskGeneratorService } from '../checklist/services/task-generator.service';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { NextPendingTaskDto } from './dto/trip-dashboard-response.dto';
@@ -24,6 +25,7 @@ export class TripsService {
     private readonly tripsRepository: Repository<Trip>,
     @InjectRepository(TripTask)
     private readonly taskRepository: Repository<TripTask>,
+    private readonly taskGeneratorService: TaskGeneratorService,
   ) {}
 
   async findAll(userId: string): Promise<TripResponseDto[]> {
@@ -125,6 +127,13 @@ export class TripsService {
     });
 
     const savedTrip = await this.tripsRepository.save(trip);
+
+    // Generate default pre-trip tasks asynchronously (don't block on errors)
+    await this.taskGeneratorService.generateDefaultTasks(
+      savedTrip.id,
+      savedTrip.startDate,
+    );
+
     return this.toTripResponse(savedTrip);
   }
 

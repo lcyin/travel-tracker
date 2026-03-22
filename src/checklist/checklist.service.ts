@@ -84,6 +84,7 @@ export class ChecklistService {
       isCompleted: tripTask.isCompleted,
       dueDate: tripTask.dueDate,
       priority: tripTask.priority,
+      category: tripTask.category,
       tripId: tripTask.tripId,
       createdAt: tripTask.createdAt,
       updatedAt: tripTask.updatedAt,
