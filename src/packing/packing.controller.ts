@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,6 +17,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -25,7 +27,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { AcceptPackingSuggestionsDto } from './dto/accept-packing-suggestions.dto';
 import { CreatePackingItemDto } from './dto/create-packing-item.dto';
+import { PackingFiltersQueryDto } from './dto/packing-filters-query.dto';
 import { PackingItemResponseDto } from './dto/packing-item-response.dto';
+import { PackingProgressResponseDto } from './dto/packing-progress-response.dto';
 import { PackingSuggestionsResponseDto } from './dto/packing-suggestions-response.dto';
 import { UpdatePackingItemDto } from './dto/update-packing-item.dto';
 import { PackingService } from './packing.service';
@@ -43,13 +47,35 @@ export class PackingController {
 
   @ApiOperation({ summary: 'List packing items for a trip' })
   @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
+  @ApiQuery({
+    name: 'category',
+    required: false,
+    description: 'Filter by category',
+  })
+  @ApiQuery({
+    name: 'isPacked',
+    required: false,
+    description: 'Filter by packed status (true/false)',
+  })
   @ApiOkResponse({ type: PackingItemResponseDto, isArray: true })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
   @Get()
   findAll(
     @Param('tripId', ParseUUIDPipe) tripId: string,
+    @Query() query: PackingFiltersQueryDto,
   ): Promise<PackingItemResponseDto[]> {
-    return this.packingService.findAll(tripId);
+    return this.packingService.findAll(tripId, query);
+  }
+
+  @ApiOperation({ summary: 'Get packing progress summary for a trip' })
+  @ApiParam({ name: 'tripId', description: 'Trip ID (UUID)' })
+  @ApiOkResponse({ type: PackingProgressResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  @Get('progress')
+  getProgress(
+    @Param('tripId', ParseUUIDPipe) tripId: string,
+  ): Promise<PackingProgressResponseDto> {
+    return this.packingService.getProgress(tripId);
   }
 
   @ApiOperation({ summary: 'Create a packing item for a trip' })

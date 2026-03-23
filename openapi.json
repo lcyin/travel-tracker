@@ -632,6 +632,26 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category",
+            "schema": {
+              "example": "Documents",
+              "type": "string"
+            }
+          },
+          {
+            "name": "isPacked",
+            "required": false,
+            "in": "query",
+            "description": "Filter by packed status (true/false)",
+            "schema": {
+              "example": "true",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -706,6 +726,46 @@
           }
         ],
         "summary": "Create a packing item for a trip",
+        "tags": [
+          "Packing"
+        ]
+      }
+    },
+    "/trips/{tripId}/packing/progress": {
+      "get": {
+        "operationId": "PackingController_getProgress",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackingProgressResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get packing progress summary for a trip",
         "tags": [
           "Packing"
         ]
@@ -1897,6 +1957,31 @@
           "tripId",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "PackingProgressResponseDto": {
+        "type": "object",
+        "properties": {
+          "packed": {
+            "type": "number",
+            "description": "Number of packed items",
+            "example": 8
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of items",
+            "example": 20
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Packed percentage (0-100)",
+            "example": 40
+          }
+        },
+        "required": [
+          "packed",
+          "total",
+          "percentage"
         ]
       },
       "CreatePackingItemDto": {

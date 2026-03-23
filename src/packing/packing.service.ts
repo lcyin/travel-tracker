@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreatePackingItemDto } from './dto/create-packing-item.dto';
+import { PackingFiltersQueryDto } from './dto/packing-filters-query.dto';
 import { PackingItemResponseDto } from './dto/packing-item-response.dto';
+import { PackingProgressResponseDto } from './dto/packing-progress-response.dto';
 import { UpdatePackingItemDto } from './dto/update-packing-item.dto';
 import { PackingItem } from './entities/packing-item.entity';
 
@@ -14,15 +16,49 @@ export class PackingService {
     private readonly packingItemsRepository: Repository<PackingItem>,
   ) {}
 
-  async findAll(tripId: string): Promise<PackingItemResponseDto[]> {
+  async findAll(
+    tripId: string,
+    filters?: PackingFiltersQueryDto,
+  ): Promise<PackingItemResponseDto[]> {
+    const where: {
+      tripId: string;
+      category?: string;
+      isPacked?: boolean;
+    } = { tripId };
+
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+
+    if (typeof filters?.isPacked === 'string') {
+      where.isPacked = filters.isPacked === 'true';
+    }
+
     const packingItems = await this.packingItemsRepository.find({
-      where: { tripId },
+      where,
       order: { createdAt: 'ASC' },
     });
 
     return packingItems.map((packingItem) =>
       this.toPackingItemResponse(packingItem),
     );
+  }
+
+  async getProgress(tripId: string): Promise<PackingProgressResponseDto> {
+    const packingItems = await this.packingItemsRepository.find({
+      where: { tripId },
+      select: ['id', 'isPacked'],
+    });
+
+    const total = packingItems.length;
+    const packed = packingItems.filter((item) => item.isPacked).length;
+    const percentage = total === 0 ? 0 : Math.round((packed / total) * 100);
+
+    return {
+      packed,
+      total,
+      percentage,
+    };
   }
 
   async create(
