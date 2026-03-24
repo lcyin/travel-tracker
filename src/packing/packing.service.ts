@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { CreatePackingItemDto } from './dto/create-packing-item.dto';
 import { PackingFiltersQueryDto } from './dto/packing-filters-query.dto';
@@ -96,14 +96,14 @@ export class PackingService {
 
   async remove(tripId: string, id: string): Promise<DeleteResponseDto> {
     const packingItem = await this.packingItemsRepository.findOne({
-      where: { id, tripId },
+      where: { id, tripId, deletedAt: IsNull() },
     });
 
     if (!packingItem) {
       throw new NotFoundException('Packing item not found');
     }
 
-    await this.packingItemsRepository.remove(packingItem);
+    await this.packingItemsRepository.softRemove(packingItem);
 
     return { deleted: true, id };
   }

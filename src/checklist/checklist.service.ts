@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { ChecklistGroupedResponseDto } from './dto/checklist-grouped-response.dto';
 import { CreateTripTaskDto } from './dto/create-trip-task.dto';
@@ -17,7 +17,7 @@ export class ChecklistService {
 
   async findGrouped(tripId: string): Promise<ChecklistGroupedResponseDto> {
     const allTasks = await this.tripTasksRepository.find({
-      where: { tripId },
+      where: { tripId, deletedAt: IsNull() },
     });
 
     const now = new Date();
@@ -73,7 +73,7 @@ export class ChecklistService {
     updateTripTaskDto: UpdateTripTaskDto,
   ): Promise<TripTaskResponseDto> {
     const tripTask = await this.tripTasksRepository.findOne({
-      where: { id, tripId },
+      where: { id, tripId, deletedAt: IsNull() },
     });
 
     if (!tripTask) {
@@ -93,14 +93,14 @@ export class ChecklistService {
 
   async remove(tripId: string, id: string): Promise<DeleteResponseDto> {
     const tripTask = await this.tripTasksRepository.findOne({
-      where: { id, tripId },
+      where: { id, tripId, deletedAt: IsNull() },
     });
 
     if (!tripTask) {
       throw new NotFoundException('Trip task not found');
     }
 
-    await this.tripTasksRepository.remove(tripTask);
+    await this.tripTasksRepository.softDelete(tripTask.id);
 
     return { deleted: true, id };
   }
