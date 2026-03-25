@@ -1,0 +1,155 @@
+Summary,Issue Type,Epic Link,Priority,Labels,Story Points,Description
+BE-1: Bootstrap NestJS project and DB schema,Story,Backend & Infra,High,sprint1,3,"As a developer, I want a NestJS project bootstrapped with PostgreSQL so that I can implement trip features consistently.
+
+Acceptance Criteria:
+- NestJS project initialized with modules: Auth, Trips, Checklist, Packing
+- Connected to PostgreSQL with TypeORM/Prisma migrations
+- Base entities created: User, Trip, TripTask, PackingItem
+- Health-check endpoint available at /health"
+BE-2: Implement user authentication (email/password + JWT),Story,Backend & Infra,High,sprint1,3,"As a traveler, I want to sign up and log in so that my trips are saved securely to my account.
+
+Acceptance Criteria:
+- Endpoints: POST /auth/register, POST /auth/login, POST /auth/logout
+- JWT-based auth; all trip endpoints require valid token
+- Password is hashed (bcrypt)
+- Return 401 for invalid credentials"
+BE-3: Trip CRUD API,Story,Backend & Infra,High,sprint1,2,"As a developer, I want CRUD endpoints for trips so that the frontend can manage trip data.
+
+Acceptance Criteria:
+- Endpoints: POST /trips, GET /trips, GET /trips/:id, PATCH /trips/:id, DELETE /trips/:id
+- Ownership check: user can only access their own trips
+- Validation: end_date must be after start_date"
+DEV-1: CI pipeline and staging environment,Story,Backend & Infra,Medium,sprint1,2,"As a developer, I want a CI pipeline and staging environment so that builds and deployments are reliable.
+
+Acceptance Criteria:
+- GitHub Actions/GitLab CI runs build + tests on every PR
+- App deployed to GCP Cloud Run (or equivalent staging env)
+- Cloud SQL connected to staging app
+- Deployment triggered automatically on merge to main"
+TRIP-1: Create and view trips UI,Story,Trip Creation & Management,High,sprint1,3,"As a traveler, I want to create a new trip and see all my trips listed so that I can stay organized.
+
+Acceptance Criteria:
+- 'My Trips' screen lists trips grouped into Upcoming and Past
+- Each list item shows: destination, date range, status (Planning/In-progress/Completed)
+- Trip creation form: name, destination, dates, trip type (leisure/business/road trip)
+- Validation prevents invalid date ranges
+- User can edit and delete a trip"
+TRIP-2: Trip dashboard overview,Story,Trip Creation & Management,High,sprint1,2,"As a traveler, I want a dashboard for each trip so that I can see my planning progress at a glance.
+
+Acceptance Criteria:
+- Dashboard shows: trip name, destination, dates
+- Shows pre-trip task progress (e.g. 5/12 done)
+- Shows next upcoming pending task with due date
+- Quick-links to Checklist, Packing, Itinerary, and Documents sections"
+CHK-1: Auto-generate default checklist on trip creation,Story,Pre-trip Checklist,High,sprint1,3,"As a traveler, I want the app to auto-generate a pre-trip checklist so that I don't forget common tasks like flights and insurance.
+
+Acceptance Criteria:
+- On trip creation, default tasks are inserted: Book flights, Book accommodation, Buy travel insurance, Check visa requirements, Arrange local transport, Buy eSIM/SIM, Exchange currency, Prepare travel documents
+- Tasks are grouped into categories: Logistics, Documents, Money, Communication, Packing
+- Tasks have suggested due dates relative to trip start (e.g. flights at T-60, insurance at T-30, packing at T-1)"
+CHK-2: Checklist CRUD API and UI,Story,Pre-trip Checklist,High,sprint1,3,"As a traveler, I want to manage my checklist items so that I can customize my trip planning.
+
+Acceptance Criteria:
+- Backend: list tasks by trip, add custom task, update status, delete task
+- Frontend: checklist screen grouped by status (Pending/Done), sorted by due date
+- User can add custom task (title, category, optional due date, notes)
+- Completed tasks show a check mark and are visually greyed out
+- User can uncheck a completed task"
+CHK-3: Overdue highlighting and filter controls,Story,Pre-trip Checklist,Medium,sprint1,2,"As a traveler, I want to filter and see overdue tasks so that I know what needs urgent attention.
+
+Acceptance Criteria:
+- Tasks where due_date < today and status != done are marked as overdue
+- Overdue tasks highlighted in red or with a warning icon
+- Filter controls: All / Pending / Completed / Overdue
+- Overdue count shown on trip dashboard badge"
+PACK-1: Auto-suggest packing list on trip creation,Story,Packing List,Medium,sprint1,3,"As a traveler, I want the app to suggest a packing list based on my trip so that I pack efficiently.
+
+Acceptance Criteria:
+- Backend generates suggested items based on: trip duration, climate (warm/cold), and trip type
+- Items grouped into: Clothes, Toiletries, Electronics, Documents, Misc
+- User can accept all suggestions or selectively remove items
+- Accessible via 'Packing' section of trip dashboard"
+PACK-2: Packing list CRUD UI with packed/unpacked toggle,Story,Packing List,Medium,sprint1,2,"As a traveler, I want to manage my packing list so that I can track what I've already packed.
+
+Acceptance Criteria:
+- User can add custom packing items and choose a category
+- User can mark items as packed/unpacked with a checkbox
+- List can be filtered by category or packed status
+- Packing progress bar shown (e.g. 8/20 packed)"
+ITIN-1: DB schema and API for ItineraryDay and ItineraryItem,Story,Itinerary & Today View,High,sprint2,3,"As a developer, I want itinerary entities and endpoints so that the frontend can build the day-by-day planner.
+
+Acceptance Criteria:
+- Entities: ItineraryDay (trip_id, date), ItineraryItem (day_id, type, title, notes, start_time, end_time, order_index, status)
+- Endpoints: GET /trips/:id/itinerary, GET /itinerary-days/:id/items, POST/PATCH/DELETE for items
+- Items auto-ordered by start_time"
+ITIN-2: Day-by-day itinerary builder UI,Story,Itinerary & Today View,High,sprint2,5,"As a traveler, I want to build a day-by-day itinerary so that I have a clear plan for each day.
+
+Acceptance Criteria:
+- For each date in the trip range, show a 'Day X / Date' screen
+- User can add/edit/delete items with: title, type (sightseeing/meal/transfer/other), start time, end time, notes
+- Items are auto-ordered by start time
+- Navigation between days via swipe or date picker"
+ITIN-3: Place entity and linking to itinerary items,Story,Itinerary & Today View,Medium,sprint2,3,"As a traveler, I want to save and reuse places with addresses and coordinates so that my itinerary is location-aware.
+
+Acceptance Criteria:
+- Place entity: name, address, optional URL, optional lat/lng
+- When creating/editing an itinerary item, user can choose existing place or create a new one inline
+- Place details (address, link) shown on itinerary item
+- Basic map pin shown if lat/lng is available"
+ITIN-4: Today view with current and next activity,Story,Itinerary & Today View,High,sprint2,5,"As a traveler, I want a Today view that shows my current and next activities so that I can stay on track during the trip.
+
+Acceptance Criteria:
+- Today tab only visible when trip is active (today between start and end date)
+- Shows current activity (based on time) and next upcoming activity
+- User can mark items as Done or Skipped; these are excluded from 'Next activity' calculation
+- If no activities remain, show 'You're done for today!'
+- Shows linked documents shortcut on current activity card"
+ITIN-5: Adjust schedule when running late,Story,Itinerary & Today View,Low,sprint2,2,"As a traveler, I want to bulk-shift future activities by a set offset so that my plan stays realistic when I'm running late.
+
+Acceptance Criteria:
+- From Today view, user can tap 'Running late' and choose offset: +15, +30, +60 minutes
+- All future (not yet started) items shift their start/end times accordingly
+- Past and done items are unchanged
+- Confirmation prompt shown before applying the change"
+NOTIF-1: Set up background job/queue service for reminders,Story,Notifications & Reminders,High,sprint2,3,"As a developer, I want a background job queue so that notifications are reliable and run independently of API requests.
+
+Acceptance Criteria:
+- BullMQ + Redis (or equivalent) set up and connected
+- Reminder entity: related_to_type, related_to_id, trigger_time, status (scheduled/fired/cancelled)
+- API to schedule and cancel reminder jobs
+- Jobs survive server restarts (persistent queue)"
+NOTIF-2: Pre-trip task reminders,Story,Notifications & Reminders,High,sprint2,3,"As a traveler, I want reminders for upcoming and overdue pre-trip tasks so that I don't miss critical planning steps.
+
+Acceptance Criteria:
+- Reminder scheduled at due_date morning (default 09:00, user's timezone) for each TripTask
+- Reminder fires again if task is overdue and still not done
+- Push/local notification tapping opens the relevant task directly
+- Trip-level toggle to enable/disable pre-trip reminders"
+NOTIF-3: Activity start reminders,Story,Notifications & Reminders,High,sprint2,3,"As a traveler, I want reminders before each itinerary activity starts so that I know when to head to the next spot.
+
+Acceptance Criteria:
+- For each itinerary item with a start_time, schedule notification at start_time − lead_minutes
+- Default lead time: 30 minutes (configurable in settings)
+- Tapping notification opens Today view focused on that item
+- Reminders are cancelled if the item is deleted or marked done early"
+DOC-1: Attach documents to a trip,Story,Travel Documents,Medium,sprint2,3,"As a traveler, I want to upload and store my booking confirmations and tickets in the app so that I can find them quickly when needed.
+
+Acceptance Criteria:
+- User can upload files (PDF, image) to a trip with a label (e.g. 'Flight to Tokyo', 'Hotel booking')
+- Documents listed under trip with name, type, and upload date
+- Tapping a file opens it in an in-app viewer
+- User can delete a document"
+UX-1: Settings screen for timezone and reminder lead time,Story,Notifications & Reminders,Medium,sprint2,2,"As a traveler, I want to configure my timezone and default reminder lead time so that notifications fire at the right time.
+
+Acceptance Criteria:
+- Settings screen with: timezone picker (auto-detected, editable) and default lead time for activity reminders (15/30/60 min)
+- Backend uses user timezone for all reminder scheduling
+- Do Not Disturb window setting (e.g. 23:00–07:00) suppresses notifications in that window"
+QA-1: End-to-end smoke tests for key flows,Story,Backend & Infra,Medium,sprint2,2,"As a developer, I want end-to-end smoke tests for critical flows so that regressions are caught before release.
+
+Acceptance Criteria:
+- Test: Sign up → create trip → see auto-generated checklist and packing list
+- Test: Create itinerary for one day, mark an item as done in Today view
+- Test: Pre-trip reminder fires for a task due today
+- Test: Activity reminder fires at start_time − lead_time
+- Tests run in CI on every PR"
