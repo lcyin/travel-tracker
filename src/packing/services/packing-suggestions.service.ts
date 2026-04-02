@@ -37,8 +37,8 @@ export class PackingSuggestionsService {
     }
 
     const durationDays = this.calculateDuration(trip.startDate, trip.endDate);
-    const tripType: TripType = (trip.tripType as TripType) ?? TripType.Leisure;
-    const climate = trip.climate as TripClimate | undefined;
+    const tripType: TripType = trip.tripType ?? TripType.Leisure;
+    const climate = trip.climate;
     const suggestions = buildPackingSuggestions(
       tripType,
       climate,
@@ -64,8 +64,8 @@ export class PackingSuggestionsService {
     }
 
     const durationDays = this.calculateDuration(trip.startDate, trip.endDate);
-    const tripType: TripType = (trip.tripType as TripType) ?? TripType.Leisure;
-    const climate = trip.climate as TripClimate | undefined;
+    const tripType: TripType = trip.tripType ?? TripType.Leisure;
+    const climate = trip.climate;
     const allSuggestions = buildPackingSuggestions(
       tripType,
       climate,

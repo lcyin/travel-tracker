@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { TripTask } from '../../checklist/entities/trip-task.entity';
+import { ItineraryDay } from '../../itinerary/entities/itinerary-day.entity';
 import { PackingItem } from '../../packing/entities/packing-item.entity';
 import { TripStatus, TripClimate, TripType } from '../enums/trip.enums';
 
@@ -58,6 +59,9 @@ export class Trip {
 
   @OneToMany(() => PackingItem, (item) => item.trip)
   packingItems!: PackingItem[];
+
+  @OneToMany(() => ItineraryDay, (day) => day.trip)
+  days!: ItineraryDay[];
 
   @CreateDateColumn()
   createdAt!: Date;
