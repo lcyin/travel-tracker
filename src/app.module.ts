@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
 import { ChecklistModule } from './checklist/checklist.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { HealthModule } from './health/health.module';
 import { ItineraryModule } from './itinerary/itinerary.module';
 import { PackingModule } from './packing/packing.module';
@@ -42,6 +43,7 @@ import { TripsModule } from './trips/trips.module';
     AuthModule,
     TripsModule,
     ChecklistModule,
+    ExpensesModule,
     PackingModule,
     ItineraryModule,
     HealthModule,

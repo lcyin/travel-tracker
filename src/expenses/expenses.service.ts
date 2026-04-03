@@ -1,0 +1,607 @@
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { stringify } from 'csv-stringify/sync';
+import { Trip } from '../trips/entities/trip.entity';
+import { DeleteResponseDto } from '../common/dto/delete-response.dto';
+import { Budget } from './entities/budget.entity';
+import { Expense } from './entities/expense.entity';
+import { Receipt } from './entities/receipt.entity';
+import { BudgetResponseDto } from './dto/budget-response.dto';
+import { CreateBudgetDto } from './dto/create-budget.dto';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseFiltersQueryDto } from './dto/expense-filters-query.dto';
+import { ExpenseResponseDto } from './dto/expense-response.dto';
+import { ExpenseSummaryQueryDto } from './dto/expense-summary-query.dto';
+import { ExpenseSummaryResponseDto } from './dto/expense-summary-response.dto';
+import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { CurrencyConverterService } from './services/currency-converter.service';
+import { OcrExtractionService } from './services/ocr-extraction.service';
+
+@Injectable()
+export class ExpensesService {
+  private readonly logger = new Logger(ExpensesService.name);
+
+  constructor(
+    @InjectRepository(Expense)
+    private readonly expenseRepository: Repository<Expense>,
+    @InjectRepository(Receipt)
+    private readonly receiptRepository: Repository<Receipt>,
+    @InjectRepository(Budget)
+    private readonly budgetRepository: Repository<Budget>,
+    @InjectRepository(Trip)
+    private readonly tripsRepository: Repository<Trip>,
+    private readonly currencyConverter: CurrencyConverterService,
+    private readonly ocrService: OcrExtractionService,
+  ) {}
+
+  async findAll(
+    tripId: string,
+    userId: string,
+    filters?: ExpenseFiltersQueryDto,
+  ): Promise<ExpenseResponseDto[]> {
+    // Ownership check
+    await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const query = this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.receipts', 'receipt')
+      .where('expense.tripId = :tripId', { tripId })
+      .andWhere('expense.deletedAt IS NULL');
+
+    if (filters?.category) {
+      query.andWhere('expense.category = :category', {
+        category: filters.category,
+      });
+    }
+
+    if (filters?.paymentMethod) {
+      query.andWhere('expense.paymentMethod = :paymentMethod', {
+        paymentMethod: filters.paymentMethod,
+      });
+    }
+
+    if (filters?.currency) {
+      query.andWhere('expense.currency = :currency', {
+        currency: filters.currency,
+      });
+    }
+
+    if (filters?.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      query.andWhere('expense.occurredAt >= :dateFrom', { dateFrom: fromDate });
+    }
+
+    if (filters?.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      query.andWhere('expense.occurredAt <= :dateTo', { dateTo: toDate });
+    }
+
+    query.orderBy('expense.occurredAt', 'DESC');
+
+    const expenses = await query.getMany();
+    return expenses.map((e) => this.toExpenseResponse(e));
+  }
+
+  async findOne(
+    tripId: string,
+    id: string,
+    userId: string,
+  ): Promise<ExpenseResponseDto> {
+    // Ownership check
+    await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = await this.expenseRepository.findOne({
+      where: { id, tripId, deletedAt: IsNull() },
+      relations: ['receipts'],
+    });
+
+    if (!expense) {
+      throw new NotFoundException('Expense not found');
+    }
+
+    return this.toExpenseResponse(expense);
+  }
+
+  async create(
+    tripId: string,
+    dto: CreateExpenseDto,
+    userId: string,
+  ): Promise<ExpenseResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = this.expenseRepository.create({
+      ...dto,
+      tripId,
+      userId,
+      occurredAt: new Date(dto.occurredAt),
+    });
+
+    // Auto-convert if currency differs from trip base currency
+    if (trip.baseCurrency && dto.currency !== trip.baseCurrency) {
+      const conversion = await this.currencyConverter.convert(
+        expense.amount as any,
+        dto.currency,
+        trip.baseCurrency,
+      );
+      expense.baseAmount = conversion.baseAmount;
+      expense.baseCurrency = trip.baseCurrency;
+      expense.exchangeRate = conversion.exchangeRate;
+      expense.exchangeRateSource = conversion.source;
+      expense.exchangeRateAt = conversion.rateAt;
+    } else if (trip.baseCurrency) {
+      expense.baseAmount = expense.amount;
+      expense.baseCurrency = trip.baseCurrency;
+      expense.exchangeRate = 1.0;
+    }
+
+    const saved = await this.expenseRepository.save(expense);
+    return this.toExpenseResponse(saved);
+  }
+
+  async update(
+    tripId: string,
+    id: string,
+    dto: UpdateExpenseDto,
+    userId: string,
+  ): Promise<ExpenseResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = await this.expenseRepository.findOne({
+      where: { id, tripId, deletedAt: IsNull() },
+      relations: ['receipts'],
+    });
+
+    if (!expense) {
+      throw new NotFoundException('Expense not found');
+    }
+
+    Object.assign(expense, dto);
+
+    if (dto.occurredAt) {
+      expense.occurredAt = new Date(dto.occurredAt);
+    }
+    if ((dto.amount || dto.currency) && trip.baseCurrency) {
+      const amt = dto.amount ?? (expense.amount as any);
+      const curr = dto.currency ?? expense.currency;
+      if (curr !== trip.baseCurrency) {
+        const conversion = await this.currencyConverter.convert(
+          amt,
+          curr,
+          trip.baseCurrency,
+        );
+        expense.baseAmount = conversion.baseAmount;
+        expense.baseCurrency = trip.baseCurrency;
+        expense.exchangeRate = conversion.exchangeRate;
+        expense.exchangeRateSource = conversion.source;
+        expense.exchangeRateAt = conversion.rateAt;
+      }
+    }
+
+    const saved = await this.expenseRepository.save(expense);
+    return this.toExpenseResponse(saved);
+  }
+
+  async remove(
+    tripId: string,
+    id: string,
+    userId: string,
+  ): Promise<DeleteResponseDto> {
+    // Ownership check
+    await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = await this.expenseRepository.findOne({
+      where: { id, tripId, deletedAt: IsNull() },
+    });
+
+    if (!expense) {
+      throw new NotFoundException('Expense not found');
+    }
+
+    await this.expenseRepository.softDelete(id);
+    return { deleted: true, id };
+  }
+
+  async uploadReceipt(
+    tripId: string,
+    id: string,
+    file: any,
+    userId: string,
+  ): Promise<any> {
+    // Ownership check
+    await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = await this.expenseRepository.findOne({
+      where: { id, tripId, deletedAt: IsNull() },
+    });
+
+    if (!expense) {
+      throw new NotFoundException('Expense not found');
+    }
+
+    const fileUrl = `/uploads/receipts/${Date.now()}-${file.originalname}`;
+
+    const receipt = this.receiptRepository.create({
+      expenseId: id,
+      fileUrl,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      uploadedAt: new Date(),
+    });
+
+    const saved = await this.receiptRepository.save(receipt);
+
+    // Fire-and-forget OCR extraction (stub)
+    this.ocrService.extractFromReceipt(saved.id).catch((error: any) => {
+      this.logger.error(`OCR extraction failed for receipt ${saved.id}`, error);
+    });
+
+    return this.toReceiptResponse(saved);
+  }
+
+  async removeReceipt(
+    receiptId: string,
+    userId: string,
+  ): Promise<DeleteResponseDto> {
+    const receipt = await this.receiptRepository.findOne({
+      where: { id: receiptId },
+      relations: ['expense', 'expense.trip'],
+    });
+
+    if (!receipt || receipt.expense.trip.userId !== userId) {
+      throw new NotFoundException('Receipt not found');
+    }
+
+    // TODO: Delete file from disk at receipt.fileUrl
+    // For now, just remove DB record
+    await this.receiptRepository.remove(receipt);
+
+    return { deleted: true, id: receiptId };
+  }
+
+  async getSummary(
+    tripId: string,
+    userId: string,
+    query: ExpenseSummaryQueryDto,
+  ): Promise<ExpenseSummaryResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    // Fetch all expenses matching filters
+    const expenses = await this.findAll(tripId, userId, query);
+
+    if (expenses.length === 0) {
+      return {
+        totalSpent: 0,
+        baseCurrency: trip.baseCurrency || 'USD',
+        transactionCount: 0,
+        averagePerDay: 0,
+        byCategory: [],
+        byMerchant: [],
+        dailyTrend: [],
+      };
+    }
+
+    const totalSpent = expenses.reduce(
+      (sum, e) => sum + (e.baseAmount || e.amount),
+      0,
+    );
+    const avgPerDay =
+      expenses.length > 0
+        ? Math.round(
+            totalSpent /
+              new Set(expenses.map((e) => e.occurredAt?.toDateString())).size,
+          )
+        : 0;
+
+    // Category breakdown
+    const categoryMap = new Map<string, { amount: number; count: number }>();
+    expenses.forEach((e) => {
+      const cat = e.category;
+      if (!categoryMap.has(cat)) {
+        categoryMap.set(cat, { amount: 0, count: 0 });
+      }
+      const entry = categoryMap.get(cat)!;
+      entry.amount += e.baseAmount || e.amount;
+      entry.count += 1;
+    });
+
+    const byCategory = Array.from(categoryMap.entries()).map(
+      ([category, { amount, count }]) => ({
+        category,
+        amount: Math.round(amount * 100) / 100,
+        percentage: Math.round((amount / totalSpent) * 100),
+        count,
+      }),
+    );
+
+    // Merchant breakdown
+    const merchantMap = new Map<string, { amount: number; count: number }>();
+    expenses.forEach((e) => {
+      const merchant = e.merchantName || 'Unknown';
+      if (!merchantMap.has(merchant)) {
+        merchantMap.set(merchant, { amount: 0, count: 0 });
+      }
+      const entry = merchantMap.get(merchant)!;
+      entry.amount += e.baseAmount || e.amount;
+      entry.count += 1;
+    });
+
+    const byMerchant = Array.from(merchantMap.entries())
+      .map(([merchantName, { amount, count }]) => ({
+        merchantName,
+        amount: Math.round(amount * 100) / 100,
+        count,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10); // Top 10 merchants
+
+    // Daily trend
+    const dailyMap = new Map<string, number>();
+    expenses.forEach((e) => {
+      const dateStr = e.occurredAt?.toISOString().split('T')[0] || '';
+      if (!dailyMap.has(dateStr)) {
+        dailyMap.set(dateStr, 0);
+      }
+      dailyMap.set(
+        dateStr,
+        dailyMap.get(dateStr)! + (e.baseAmount || e.amount),
+      );
+    });
+
+    const dailyTrend = Array.from(dailyMap.entries())
+      .map(([date, amount]) => ({
+        date,
+        amount: Math.round(amount * 100) / 100,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      totalSpent: Math.round(totalSpent * 100) / 100,
+      baseCurrency: trip.baseCurrency || 'USD',
+      transactionCount: expenses.length,
+      averagePerDay: avgPerDay,
+      byCategory,
+      byMerchant,
+      dailyTrend,
+    };
+  }
+
+  async getBudget(tripId: string, userId: string): Promise<BudgetResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const budget = await this.budgetRepository.findOne({ where: { tripId } });
+
+    if (!budget) {
+      throw new NotFoundException('Budget not found for this trip');
+    }
+
+    // Compute spent via SUM of baseAmount
+    const result = await this.expenseRepository
+      .createQueryBuilder('expense')
+      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .where('expense.tripId = :tripId', { tripId })
+      .andWhere('expense.deletedAt IS NULL')
+      .getRawOne();
+
+    const spent = parseFloat(result.total || 0);
+    const remaining = budget.totalAmount - spent;
+    const percentageUsed = Math.round((spent / budget.totalAmount) * 100);
+
+    return {
+      ...budget,
+      spent,
+      remaining,
+      percentageUsed,
+    };
+  }
+
+  async createBudget(
+    tripId: string,
+    dto: CreateBudgetDto,
+    userId: string,
+  ): Promise<BudgetResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const budget = this.budgetRepository.create({
+      ...dto,
+      tripId,
+    });
+
+    const saved = await this.budgetRepository.save(budget);
+    const result = await this.expenseRepository
+      .createQueryBuilder('expense')
+      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .where('expense.tripId = :tripId', { tripId })
+      .andWhere('expense.deletedAt IS NULL')
+      .getRawOne();
+
+    const spent = parseFloat(result.total || 0);
+    return {
+      ...saved,
+      spent,
+      remaining: saved.totalAmount - spent,
+      percentageUsed: Math.round((spent / saved.totalAmount) * 100),
+    };
+  }
+
+  async updateBudget(
+    tripId: string,
+    dto: UpdateBudgetDto,
+    userId: string,
+  ): Promise<BudgetResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const budget = await this.budgetRepository.findOne({ where: { tripId } });
+
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+
+    Object.assign(budget, dto);
+    const saved = await this.budgetRepository.save(budget);
+
+    const result = await this.expenseRepository
+      .createQueryBuilder('expense')
+      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .where('expense.tripId = :tripId', { tripId })
+      .andWhere('expense.deletedAt IS NULL')
+      .getRawOne();
+
+    const spent = parseFloat(result.total || 0);
+    return {
+      ...saved,
+      spent,
+      remaining: saved.totalAmount - spent,
+      percentageUsed: Math.round((spent / saved.totalAmount) * 100),
+    };
+  }
+
+  async deleteBudget(
+    tripId: string,
+    userId: string,
+  ): Promise<DeleteResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const budget = await this.budgetRepository.findOne({ where: { tripId } });
+
+    if (!budget) {
+      throw new NotFoundException('Budget not found');
+    }
+
+    await this.budgetRepository.remove(budget);
+    return { deleted: true, id: budget.id };
+  }
+
+  async exportCsv(
+    tripId: string,
+    userId: string,
+    query: ExpenseSummaryQueryDto,
+  ): Promise<string> {
+    const expenses = await this.findAll(tripId, userId, query);
+
+    const rows = expenses.map((e) => [
+      e.occurredAt?.toISOString().split('T')[0] || '',
+      e.merchantName || '',
+      e.category,
+      e.paymentMethod,
+      e.amount,
+      e.currency,
+      e.baseAmount || '',
+      e.baseCurrency || '',
+      e.notes || '',
+      e.receipt ? 'yes' : 'no',
+    ]);
+
+    const csv = stringify(rows, {
+      header: false,
+      columns: [
+        'date',
+        'merchant',
+        'category',
+        'payment_method',
+        'amount',
+        'currency',
+        'base_amount',
+        'base_currency',
+        'notes',
+        'has_receipt',
+      ],
+    });
+
+    return csv;
+  }
+
+  async checkDuplicate(
+    tripId: string,
+    dto: CreateExpenseDto,
+  ): Promise<{ isDuplicate: boolean; candidateId?: string }> {
+    // Simple heuristic: same merchant + amount + currency within ±1 day
+    const occurredAt = new Date(dto.occurredAt);
+    const minDate = new Date(occurredAt.getTime() - 24 * 60 * 60 * 1000);
+    const maxDate = new Date(occurredAt.getTime() + 24 * 60 * 60 * 1000);
+
+    const candidate = await this.expenseRepository.findOne({
+      where: {
+        tripId,
+        merchantName: dto.merchantName,
+        amount: dto.amount,
+        currency: dto.currency,
+        deletedAt: IsNull(),
+      },
+      order: { occurredAt: 'DESC' },
+    });
+
+    if (
+      candidate &&
+      candidate.occurredAt >= minDate &&
+      candidate.occurredAt <= maxDate
+    ) {
+      return { isDuplicate: true, candidateId: candidate.id };
+    }
+
+    return { isDuplicate: false };
+  }
+
+  /**
+   * Get trip by ID and verify ownership.
+   */
+  private async getTripWithOwnershipCheck(
+    tripId: string,
+    userId: string,
+  ): Promise<Trip> {
+    const trip = await this.tripsRepository.findOne({
+      where: { id: tripId, userId },
+    });
+
+    if (!trip) {
+      throw new NotFoundException('Trip not found');
+    }
+
+    return trip;
+  }
+
+  // Private mappers
+  private toExpenseResponse(expense: Expense): ExpenseResponseDto {
+    return {
+      id: expense.id,
+      tripId: expense.tripId,
+      occurredAt: expense.occurredAt,
+      merchantName: expense.merchantName,
+      amount: expense.amount as number,
+      currency: expense.currency,
+      baseAmount: expense.baseAmount as number | undefined,
+      baseCurrency: expense.baseCurrency,
+      exchangeRate: expense.exchangeRate as number | undefined,
+      exchangeRateSource: expense.exchangeRateSource,
+      exchangeRateAt: expense.exchangeRateAt,
+      category: expense.category,
+      paymentMethod: expense.paymentMethod,
+      notes: expense.notes,
+      source: expense.source,
+      extractionStatus: expense.extractionStatus,
+      receipt: expense.receipts?.[0]
+        ? this.toReceiptResponse(expense.receipts[0])
+        : undefined,
+      createdAt: expense.createdAt,
+      updatedAt: expense.updatedAt,
+    };
+  }
+
+  private toReceiptResponse(receipt: Receipt): any {
+    return {
+      id: receipt.id,
+      expenseId: receipt.expenseId,
+      fileUrl: receipt.fileUrl,
+      thumbnailUrl: receipt.thumbnailUrl,
+      mimeType: receipt.mimeType,
+      fileSize: receipt.fileSize,
+      uploadedAt: receipt.uploadedAt,
+      rawOcrJson: receipt.rawOcrJson,
+      confidenceScore: receipt.confidenceScore,
+      createdAt: receipt.createdAt,
+      updatedAt: receipt.updatedAt,
+    };
+  }
+}

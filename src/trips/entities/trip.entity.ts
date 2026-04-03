@@ -11,6 +11,8 @@ import { User } from '../../auth/entities/user.entity';
 import { TripTask } from '../../checklist/entities/trip-task.entity';
 import { ItineraryDay } from '../../itinerary/entities/itinerary-day.entity';
 import { PackingItem } from '../../packing/entities/packing-item.entity';
+import { Expense } from '../../expenses/entities/expense.entity';
+import { Budget } from '../../expenses/entities/budget.entity';
 import { TripStatus, TripClimate, TripType } from '../enums/trip.enums';
 
 @Entity('trips')
@@ -48,6 +50,9 @@ export class Trip {
   })
   climate?: TripClimate;
 
+  @Column({ length: 3, nullable: true })
+  baseCurrency?: string;
+
   @Column()
   userId!: string;
 
@@ -62,6 +67,12 @@ export class Trip {
 
   @OneToMany(() => ItineraryDay, (day) => day.trip)
   days!: ItineraryDay[];
+
+  @OneToMany(() => Expense, (expense) => expense.trip)
+  expenses!: Expense[];
+
+  @OneToMany(() => Budget, (budget) => budget.trip)
+  budgets!: Budget[];
 
   @CreateDateColumn()
   createdAt!: Date;
