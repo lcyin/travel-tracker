@@ -33,7 +33,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { User } from '../auth/entities/user.entity';
+import type { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { ExpensesService } from './expenses.service';
 import { BudgetResponseDto } from './dto/budget-response.dto';
 import { CreateBudgetDto } from './dto/create-budget.dto';
@@ -73,9 +73,9 @@ export class ExpensesController {
   async findAll(
     @Param('tripId') tripId: string,
     @Query() filters: ExpenseFiltersQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseResponseDto[]> {
-    return this.expensesService.findAll(tripId, user.id, filters);
+    return this.expensesService.findAll(tripId, user.sub, filters);
   }
 
   @Get('summary')
@@ -90,9 +90,9 @@ export class ExpensesController {
   async getSummary(
     @Param('tripId') tripId: string,
     @Query() query: ExpenseSummaryQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseSummaryResponseDto> {
-    return this.expensesService.getSummary(tripId, user.id, query);
+    return this.expensesService.getSummary(tripId, user.sub, query);
   }
 
   @Get('export/csv')
@@ -104,10 +104,10 @@ export class ExpensesController {
   async exportCsv(
     @Param('tripId') tripId: string,
     @Query() query: ExpenseSummaryQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
     @Res() res: Response,
   ): Promise<void> {
-    const csv = await this.expensesService.exportCsv(tripId, user.id, query);
+    const csv = await this.expensesService.exportCsv(tripId, user.sub, query);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="expenses.csv"');
     res.send(csv);
@@ -136,9 +136,9 @@ export class ExpensesController {
   async findOne(
     @Param('tripId') tripId: string,
     @Param('id') id: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseResponseDto> {
-    return this.expensesService.findOne(tripId, id, user.id);
+    return this.expensesService.findOne(tripId, id, user.sub);
   }
 
   @Post()
@@ -151,9 +151,9 @@ export class ExpensesController {
   async create(
     @Param('tripId') tripId: string,
     @Body() dto: CreateExpenseDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseResponseDto> {
-    return this.expensesService.create(tripId, dto, user.id);
+    return this.expensesService.create(tripId, dto, user.sub);
   }
 
   @Put(':id')
@@ -168,9 +168,9 @@ export class ExpensesController {
     @Param('tripId') tripId: string,
     @Param('id') id: string,
     @Body() dto: UpdateExpenseDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseResponseDto> {
-    return this.expensesService.update(tripId, id, dto, user.id);
+    return this.expensesService.update(tripId, id, dto, user.sub);
   }
 
   @Delete(':id')
@@ -183,9 +183,9 @@ export class ExpensesController {
   async remove(
     @Param('tripId') tripId: string,
     @Param('id') id: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<DeleteResponseDto> {
-    return this.expensesService.remove(tripId, id, user.id);
+    return this.expensesService.remove(tripId, id, user.sub);
   }
 
   // ==================== RECEIPT ENDPOINTS ====================
@@ -204,12 +204,17 @@ export class ExpensesController {
     @Param('tripId') tripId: string,
     @Param('expenseId') expenseId: string,
     @UploadedFile() file: any,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<any> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    return this.expensesService.uploadReceipt(tripId, expenseId, file, user.id);
+    return this.expensesService.uploadReceipt(
+      tripId,
+      expenseId,
+      file,
+      user.sub,
+    );
   }
 
   @Delete('receipts/:receiptId')
@@ -220,9 +225,9 @@ export class ExpensesController {
   @ApiNotFoundResponse({ description: 'Receipt not found' })
   async removeReceipt(
     @Param('receiptId') receiptId: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<DeleteResponseDto> {
-    return this.expensesService.removeReceipt(receiptId, user.id);
+    return this.expensesService.removeReceipt(receiptId, user.sub);
   }
 
   // ==================== BUDGET ENDPOINTS ====================
@@ -235,9 +240,9 @@ export class ExpensesController {
   @ApiNotFoundResponse({ description: 'Budget not found' })
   async getBudget(
     @Param('tripId') tripId: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<BudgetResponseDto> {
-    return this.expensesService.getBudget(tripId, user.id);
+    return this.expensesService.getBudget(tripId, user.sub);
   }
 
   @Post('budget')
@@ -250,9 +255,9 @@ export class ExpensesController {
   async createBudget(
     @Param('tripId') tripId: string,
     @Body() dto: CreateBudgetDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<BudgetResponseDto> {
-    return this.expensesService.createBudget(tripId, dto, user.id);
+    return this.expensesService.createBudget(tripId, dto, user.sub);
   }
 
   @Put('budget')
@@ -265,9 +270,9 @@ export class ExpensesController {
   async updateBudget(
     @Param('tripId') tripId: string,
     @Body() dto: UpdateBudgetDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<BudgetResponseDto> {
-    return this.expensesService.updateBudget(tripId, dto, user.id);
+    return this.expensesService.updateBudget(tripId, dto, user.sub);
   }
 
   @Delete('budget')
@@ -278,9 +283,9 @@ export class ExpensesController {
   @ApiNotFoundResponse({ description: 'Budget not found' })
   async deleteBudget(
     @Param('tripId') tripId: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<DeleteResponseDto> {
-    return this.expensesService.deleteBudget(tripId, user.id);
+    return this.expensesService.deleteBudget(tripId, user.sub);
   }
 
   @ApiOperation({ summary: 'Extract receipt data using OCR' })
@@ -348,11 +353,11 @@ export class ExpensesController {
   async createFromReceipt(
     @UploadedFile() file: Express.Multer.File,
     @Param('tripId') tripId: string,
-    @CurrentUser() user: User,
+    @CurrentUser() user: CurrentUserPayload,
   ): Promise<ExpenseResponseDto> {
     if (!file) {
       throw new BadRequestException('Receipt file is required');
     }
-    return this.expensesService.createFromReceipt(tripId, file, user.id);
+    return this.expensesService.createFromReceipt(tripId, file, user.sub);
   }
 }
