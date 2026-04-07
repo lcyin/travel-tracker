@@ -318,4 +318,41 @@ export class ExpensesController {
     );
     return result;
   }
+
+  @Post('create-from-receipt')
+  @ApiOperation({
+    summary: 'Scan a receipt image via OCR and create an expense',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['receipt'],
+      properties: {
+        receipt: {
+          type: 'string',
+          format: 'binary',
+          description: 'Receipt image (JPEG, PNG, or WebP)',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: ExpenseResponseDto })
+  @ApiBadRequestResponse({
+    description: 'No file uploaded or OCR could not extract amount/currency',
+  })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  @UseInterceptors(FileInterceptor('receipt'))
+  async createFromReceipt(
+    @UploadedFile() file: Express.Multer.File,
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: User,
+  ): Promise<ExpenseResponseDto> {
+    if (!file) {
+      throw new BadRequestException('Receipt file is required');
+    }
+    return this.expensesService.createFromReceipt(tripId, file, user.id);
+  }
 }

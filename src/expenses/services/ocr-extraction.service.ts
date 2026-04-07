@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Receipt } from '../entities/receipt.entity';
+import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export interface ExtractedReceipt {
   merchantName: string | null;
   date: string | null; // ISO date string
@@ -24,16 +23,11 @@ export interface ExtractedReceipt {
 @Injectable()
 export class OcrExtractionService {
   private readonly logger = new Logger(OcrExtractionService.name);
-  private genAI: GoogleGenerativeAI;
+  private readonly genAI: GoogleGenerativeAI;
 
-  constructor(
-    @InjectRepository(Receipt)
-    private readonly receiptRepository: Repository<Receipt>,
-  ) {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not set in environment variables');
-    }
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  constructor(private readonly configService: ConfigService) {
+    const apiKey = this.configService.getOrThrow<string>('GEMINI_API_KEY');
+    this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
   async extractFromImage(

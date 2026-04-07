@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { stringify } from 'csv-stringify/sync';
@@ -17,7 +22,16 @@ import { ExpenseSummaryResponseDto } from './dto/expense-summary-response.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { CurrencyConverterService } from './services/currency-converter.service';
-import { OcrExtractionService } from './services/ocr-extraction.service';
+import {
+  ExtractedReceipt,
+  OcrExtractionService,
+} from './services/ocr-extraction.service';
+import {
+  ExpenseCategory,
+  ExpenseSource,
+  ExtractionStatus,
+  PaymentMethod,
+} from './enums/expense.enums';
 
 @Injectable()
 export class ExpensesService {
@@ -233,14 +247,30 @@ export class ExpensesService {
 
     const saved = await this.receiptRepository.save(receipt);
 
-    // Fire-and-forget OCR extraction (stub)
-    this.ocrService.extractFromImage(file.path).then((extracted) => {
-      this.logger.debug(
-        `OCR extracted data for receipt ${saved.id}: ${JSON.stringify(
-          extracted,
-        )}`,
-      );
-    });
+    // Set status to pending before kicking off OCR
+    expense.extractionStatus = ExtractionStatus.Pending;
+    await this.expenseRepository.save(expense);
+
+    // Fire-and-forget OCR extraction
+    this.ocrService
+      .extractFromImage(file.buffer, file.mimetype)
+      .then(async (extracted) => {
+        saved.rawOcrJson = extracted as unknown as Record<string, unknown>;
+        saved.confidenceScore = this.mapOcrConfidenceScore(
+          extracted.confidence,
+        );
+        await this.receiptRepository.save(saved);
+
+        expense.extractionStatus = ExtractionStatus.Success;
+        await this.expenseRepository.save(expense);
+
+        this.logger.debug(`OCR extraction success for receipt ${saved.id}`);
+      })
+      .catch(async (err: unknown) => {
+        expense.extractionStatus = ExtractionStatus.Failed;
+        await this.expenseRepository.save(expense);
+        this.logger.error(`OCR extraction failed for receipt ${saved.id}`, err);
+      });
 
     return this.toReceiptResponse(saved);
   }
@@ -548,6 +578,79 @@ export class ExpensesService {
     return { isDuplicate: false };
   }
 
+  async createFromReceipt(
+    tripId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<ExpenseResponseDto> {
+    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const extracted = await this.ocrService.extractFromImage(
+      file.buffer,
+      file.mimetype as 'image/jpeg' | 'image/png' | 'image/webp',
+    );
+
+    if (!extracted.totalAmount || !extracted.currency) {
+      throw new BadRequestException(
+        'Could not extract amount or currency from receipt. Please enter the expense manually.',
+      );
+    }
+
+    const extractionStatus =
+      extracted.confidence === 'high'
+        ? ExtractionStatus.Success
+        : ExtractionStatus.NeedsReview;
+
+    const expense = this.expenseRepository.create({
+      tripId,
+      userId,
+      amount: extracted.totalAmount,
+      currency: extracted.currency,
+      merchantName: extracted.merchantName ?? undefined,
+      occurredAt: extracted.date ? new Date(extracted.date) : new Date(),
+      paymentMethod: this.mapOcrPaymentMethod(extracted.paymentMethod),
+      category: ExpenseCategory.Other,
+      source: ExpenseSource.Ocr,
+      extractionStatus,
+    });
+
+    if (trip.baseCurrency && extracted.currency !== trip.baseCurrency) {
+      const conversion = await this.currencyConverter.convert(
+        expense.amount as any,
+        extracted.currency,
+        trip.baseCurrency,
+      );
+      expense.baseAmount = conversion.baseAmount;
+      expense.baseCurrency = trip.baseCurrency;
+      expense.exchangeRate = conversion.exchangeRate;
+      expense.exchangeRateSource = conversion.source;
+      expense.exchangeRateAt = conversion.rateAt;
+    } else if (trip.baseCurrency) {
+      expense.baseAmount = expense.amount;
+      expense.baseCurrency = trip.baseCurrency;
+      expense.exchangeRate = 1.0;
+    }
+
+    const savedExpense = await this.expenseRepository.save(expense);
+
+    const fileUrl = `/uploads/receipts/${Date.now()}-${file.originalname}`;
+    const receipt = this.receiptRepository.create({
+      expenseId: savedExpense.id,
+      fileUrl,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      uploadedAt: new Date(),
+      rawOcrJson: extracted as unknown as Record<string, unknown>,
+      confidenceScore: this.mapOcrConfidenceScore(extracted.confidence),
+    });
+    const savedReceipt = await this.receiptRepository.save(receipt);
+
+    return this.toExpenseResponse({
+      ...savedExpense,
+      receipts: [savedReceipt],
+    } as Expense);
+  }
+
   /**
    * Get trip by ID and verify ownership.
    */
@@ -567,17 +670,45 @@ export class ExpensesService {
   }
 
   // Private mappers
+  private mapOcrPaymentMethod(method: string | null): PaymentMethod {
+    switch (method) {
+      case 'credit_card':
+        return PaymentMethod.CreditCard;
+      case 'debit_card':
+        return PaymentMethod.DebitCard;
+      case 'cash':
+        return PaymentMethod.Cash;
+      case 'contactless':
+        return PaymentMethod.CreditCard;
+      default:
+        return PaymentMethod.Other;
+    }
+  }
+
+  private mapOcrConfidenceScore(
+    confidence: ExtractedReceipt['confidence'],
+  ): number {
+    switch (confidence) {
+      case 'high':
+        return 1.0;
+      case 'medium':
+        return 0.5;
+      case 'low':
+        return 0.2;
+    }
+  }
+
   private toExpenseResponse(expense: Expense): ExpenseResponseDto {
     return {
       id: expense.id,
       tripId: expense.tripId,
       occurredAt: expense.occurredAt,
       merchantName: expense.merchantName,
-      amount: expense.amount as number,
+      amount: expense.amount,
       currency: expense.currency,
-      baseAmount: expense.baseAmount as number | undefined,
+      baseAmount: expense.baseAmount,
       baseCurrency: expense.baseCurrency,
-      exchangeRate: expense.exchangeRate as number | undefined,
+      exchangeRate: expense.exchangeRate,
       exchangeRateSource: expense.exchangeRateSource,
       exchangeRateAt: expense.exchangeRateAt,
       category: expense.category,

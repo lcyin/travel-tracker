@@ -24,6 +24,7 @@ import { TripsModule } from './trips/trips.module';
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRATION: Joi.string().default('15m'),
         JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
+        GEMINI_API_KEY: Joi.string().required(),
       }),
     }),
     TypeOrmModule.forRootAsync({
