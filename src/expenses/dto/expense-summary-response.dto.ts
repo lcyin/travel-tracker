@@ -105,4 +105,10 @@ export class ExpenseSummaryResponseDto {
     isArray: true,
   })
   dailyTrend!: DailyTrendDto[];
+
+  @ApiProperty({
+    description: 'Number of OCR-scanned expenses needing manual review',
+    example: 2,
+  })
+  needsReviewCount!: number;
 }

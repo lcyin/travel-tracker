@@ -15,6 +15,7 @@ import { Receipt } from './entities/receipt.entity';
 import { BudgetResponseDto } from './dto/budget-response.dto';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseDashboardResponseDto } from './dto/expense-dashboard-response.dto';
 import { ExpenseFiltersQueryDto } from './dto/expense-filters-query.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { ExpenseSummaryQueryDto } from './dto/expense-summary-query.dto';
@@ -91,6 +92,12 @@ export class ExpensesService {
       const toDate = new Date(filters.dateTo);
       toDate.setHours(23, 59, 59, 999);
       query.andWhere('expense.occurredAt <= :dateTo', { dateTo: toDate });
+    }
+
+    if (filters?.extractionStatus) {
+      query.andWhere('expense.extractionStatus = :extractionStatus', {
+        extractionStatus: filters.extractionStatus,
+      });
     }
 
     query.orderBy('expense.occurredAt', 'DESC');
@@ -305,6 +312,14 @@ export class ExpensesService {
     // Fetch all expenses matching filters
     const expenses = await this.findAll(tripId, userId, query);
 
+    const needsReviewCount = await this.expenseRepository.count({
+      where: {
+        tripId,
+        extractionStatus: ExtractionStatus.NeedsReview,
+        deletedAt: IsNull(),
+      },
+    });
+
     if (expenses.length === 0) {
       return {
         totalSpent: 0,
@@ -314,6 +329,7 @@ export class ExpensesService {
         byCategory: [],
         byMerchant: [],
         dailyTrend: [],
+        needsReviewCount,
       };
     }
 
@@ -399,11 +415,39 @@ export class ExpensesService {
       byCategory,
       byMerchant,
       dailyTrend,
+      needsReviewCount,
     };
   }
 
+  async getDashboard(
+    tripId: string,
+    userId: string,
+  ): Promise<ExpenseDashboardResponseDto> {
+    const [summary, budget] = await Promise.all([
+      this.getSummary(tripId, userId, {}),
+      this.budgetRepository.findOne({ where: { tripId } }).then(async (b) => {
+        if (!b) return null;
+        const result = await this.expenseRepository
+          .createQueryBuilder('expense')
+          .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+          .where('expense.tripId = :tripId', { tripId })
+          .andWhere('expense.deletedAt IS NULL')
+          .getRawOne<{ total: string }>();
+        const spent = parseFloat(result?.total ?? '0');
+        return {
+          ...b,
+          spent,
+          remaining: b.totalAmount - spent,
+          percentageUsed: Math.round((spent / b.totalAmount) * 100),
+        } as BudgetResponseDto;
+      }),
+    ]);
+
+    return { summary, budget };
+  }
+
   async getBudget(tripId: string, userId: string): Promise<BudgetResponseDto> {
-    const trip = await this.getTripWithOwnershipCheck(tripId, userId);
+    await this.getTripWithOwnershipCheck(tripId, userId);
 
     const budget = await this.budgetRepository.findOne({ where: { tripId } });
 

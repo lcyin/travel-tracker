@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -29,6 +33,9 @@ export class OcrExtractionService {
     const apiKey = this.configService.getOrThrow<string>('GEMINI_API_KEY');
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
+
+  private static readonly MAX_RETRIES = 2;
+  private static readonly RETRY_DELAY_MS = 2000;
 
   async extractFromImage(
     imageBuffer: Buffer,
@@ -66,14 +73,45 @@ export class OcrExtractionService {
       - "low": only 1 or 0 found
     `;
 
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64Image, mimeType } },
-    ]);
+    let lastError: unknown;
+    for (
+      let attempt = 0;
+      attempt <= OcrExtractionService.MAX_RETRIES;
+      attempt++
+    ) {
+      try {
+        const result = await model.generateContent([
+          prompt,
+          { inlineData: { data: base64Image, mimeType } },
+        ]);
 
-    const text = result.response.text().trim();
-    // Strip markdown code fences if present
-    const json = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    return JSON.parse(json) as ExtractedReceipt;
+        const text = result.response.text().trim();
+        // Strip markdown code fences if present
+        const json = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+        return JSON.parse(json) as ExtractedReceipt;
+      } catch (error: unknown) {
+        lastError = error;
+        const isRetryable =
+          error instanceof Error &&
+          (error.message.includes('503') ||
+            error.message.includes('429') ||
+            error.message.includes('high demand'));
+
+        if (isRetryable && attempt < OcrExtractionService.MAX_RETRIES) {
+          const delay = OcrExtractionService.RETRY_DELAY_MS * (attempt + 1);
+          this.logger.warn(
+            `Gemini API attempt ${attempt + 1} failed (retryable), retrying in ${delay}ms`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        break;
+      }
+    }
+
+    this.logger.error('OCR extraction failed after retries', lastError);
+    throw new ServiceUnavailableException(
+      'Receipt scanning service is temporarily unavailable. Please try again in a few moments.',
+    );
   }
 }

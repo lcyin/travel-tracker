@@ -1,6 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
-import { ExpenseCategory, PaymentMethod } from '../enums/expense.enums';
+import {
+  ExpenseCategory,
+  ExtractionStatus,
+  PaymentMethod,
+} from '../enums/expense.enums';
 
 export class ExpenseFiltersQueryDto {
   @ApiPropertyOptional({
@@ -44,4 +48,13 @@ export class ExpenseFiltersQueryDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by OCR extraction status',
+    enum: ExtractionStatus,
+    example: ExtractionStatus.NeedsReview,
+  })
+  @IsOptional()
+  @IsEnum(ExtractionStatus)
+  extractionStatus?: ExtractionStatus;
 }

@@ -38,6 +38,7 @@ import { ExpensesService } from './expenses.service';
 import { BudgetResponseDto } from './dto/budget-response.dto';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { ExpenseDashboardResponseDto } from './dto/expense-dashboard-response.dto';
 import { ExpenseFiltersQueryDto } from './dto/expense-filters-query.dto';
 import { ExpenseResponseDto } from './dto/expense-response.dto';
 import { ExpenseSummaryQueryDto } from './dto/expense-summary-query.dto';
@@ -67,6 +68,11 @@ export class ExpensesController {
   @ApiQuery({ name: 'currency', required: false })
   @ApiQuery({ name: 'dateFrom', required: false })
   @ApiQuery({ name: 'dateTo', required: false })
+  @ApiQuery({
+    name: 'extractionStatus',
+    required: false,
+    description: 'Filter by OCR extraction status',
+  })
   @ApiOkResponse({ type: [ExpenseResponseDto] })
   @ApiUnauthorizedResponse()
   @ApiNotFoundResponse({ description: 'Trip not found' })
@@ -124,6 +130,21 @@ export class ExpensesController {
     @Body() dto: CreateExpenseDto,
   ): Promise<any> {
     return this.expensesService.checkDuplicate(tripId, dto);
+  }
+
+  @Get('dashboard')
+  @ApiOperation({
+    summary: 'Get combined expense summary and budget for the trip dashboard',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: ExpenseDashboardResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  async getDashboard(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ExpenseDashboardResponseDto> {
+    return this.expensesService.getDashboard(tripId, user.sub);
   }
 
   @Get(':id')
