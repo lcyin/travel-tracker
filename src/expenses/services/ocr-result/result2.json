@@ -1,0 +1,25 @@
+{
+  "merchantName": "Hamazushi",
+  "date": "2018-04-03",
+  "totalAmount": 1617,
+  "currency": "JPY",
+  "taxAmount": 119,
+  "subtotal": 1498,
+  "paymentMethod": "cash",
+  "lineItems": [
+    {
+      "name": "平日寿司皿90円",
+      "quantity": 15,
+      "unitPrice": 97,
+      "totalPrice": 1455
+    },
+    {
+      "name": "寿司皿150円",
+      "quantity": 1,
+      "unitPrice": 162,
+      "totalPrice": 162
+    }
+  ],
+  "confidence": "high",
+  "rawText": "はま寿司\nHAMAZUSHI\nはま寿司 都島本通店\n大阪府大阪市都島区都島本通3-21-3\nTEL:06-6926-0777\n【毎度ありがとうございます】\n店No:0001412 レジNo:0001\n2018年04月03日(火) 20時36分\n領収証\n卓No-012\n客数:3名様\n083 平日寿司皿90円 @97 15 ¥1,455\n187 寿司皿150円 ¥162\n----------\n内税品計 ¥1,617\n----------\n合計 ¥1,617\n(内、消費税等 ¥119)\n----------\n現金計 ¥1,617\n----------\nお預り ¥2,022\nお釣り ¥405\nレシートNo:0133566\n***************\nお客様No. 24\n***************"
+}

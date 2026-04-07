@@ -1,0 +1,43 @@
+{
+  "merchantName": "LAWSON",
+  "date": "2020-01-22",
+  "totalAmount": 594,
+  "currency": "JPY",
+  "taxAmount": 44,
+  "subtotal": 562,
+  "paymentMethod": "credit_card",
+  "lineItems": [
+    {
+      "name": "MACHIコーヒー(S)",
+      "quantity": 1,
+      "unitPrice": 100,
+      "totalPrice": 100
+    },
+    {
+      "name": "手巻 シーチキンマヨネーズ",
+      "quantity": 1,
+      "unitPrice": 120,
+      "totalPrice": 120
+    },
+    {
+      "name": "手巻おにぎり 日高昆布",
+      "quantity": 1,
+      "unitPrice": 120,
+      "totalPrice": 120
+    },
+    {
+      "name": "手巻 焼鮭ほぐし",
+      "quantity": 1,
+      "unitPrice": 150,
+      "totalPrice": 150
+    },
+    {
+      "name": "LWカオルバターノサックリメロンパン",
+      "quantity": 1,
+      "unitPrice": 116,
+      "totalPrice": 116
+    }
+  ],
+  "confidence": "high",
+  "rawText": "LAWSON\nSからくさホテル新大阪店\n大阪府大阪市淀川区宮原3-3-\n24\n電話; 06-6396-8646\n2020年 1月22日(水) 07:23\nレジ;#2 82669 責;森川\nクレジット売上票\n[お客様控え]\nMACHIコーヒー(S) 100軽\n手巻 シーチキンマヨネーズ 120軽\n手巻おにぎり 日高昆布 120軽\n手巻 焼鮭ほぐし 150軽\nLWカオルバターノサックリメロンパン 116軽\n合計 ¥606\n(内消費税等 ¥44)\n(8%対象 ¥606)\n点数 5個\nクレジット ¥594\nキャッシュレス還元対象 ( ¥606)\nキャッシュレス還元額 ¥12\nお支払い合計 ¥606\n税額は軽減税率対象商品です。\n--------------------\n買上金額 ¥594\nクレジット取扱合計 ¥594\nCL VISA 有効期限****/ **\n会員No ****-****-****-0859\nお取扱日 2020年 1月22日\n支払方法 一回\n承認番号 0141982\n処理通番 01200\nAID A0000000031010\nAPL Visa Credit\n※本書保管上のお願い\n財布・手帳等にはさんで保管戴く\n場合は、印刷面を内側に折り保管\nをお願いいたします。"
+}

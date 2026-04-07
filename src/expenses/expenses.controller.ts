@@ -14,7 +14,6 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
-  StreamableFile,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,6 +27,7 @@ import {
   ApiConsumes,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
@@ -45,13 +45,17 @@ import { ExpenseSummaryResponseDto } from './dto/expense-summary-response.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
+import { OcrExtractionService } from './services/ocr-extraction.service';
 
 @ApiTags('Expenses')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('trips/:tripId/expenses')
 export class ExpensesController {
-  constructor(private readonly expensesService: ExpensesService) {}
+  constructor(
+    private readonly expensesService: ExpensesService,
+    private readonly ocrService: OcrExtractionService,
+  ) {}
 
   // ==================== EXPENSE ENDPOINTS ====================
 
@@ -277,5 +281,41 @@ export class ExpensesController {
     @CurrentUser() user: User,
   ): Promise<DeleteResponseDto> {
     return this.expensesService.deleteBudget(tripId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Extract receipt data using OCR' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['receipt'],
+      properties: {
+        receipt: {
+          type: 'string',
+          format: 'binary',
+          description: 'Receipt image file',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: Object })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  @Post('extract-receipt')
+  @UseInterceptors(FileInterceptor('receipt'))
+  async extractReceipt(
+    @UploadedFile() file: Express.Multer.File,
+    @Param('tripId') tripId: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Receipt file is required');
+    }
+    const result = await this.ocrService.extractFromImage(
+      file.buffer,
+      file.mimetype as 'image/jpeg' | 'image/png' | 'image/webp',
+    );
+    return result;
   }
 }

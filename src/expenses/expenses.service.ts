@@ -234,8 +234,12 @@ export class ExpensesService {
     const saved = await this.receiptRepository.save(receipt);
 
     // Fire-and-forget OCR extraction (stub)
-    this.ocrService.extractFromReceipt(saved.id).catch((error: any) => {
-      this.logger.error(`OCR extraction failed for receipt ${saved.id}`, error);
+    this.ocrService.extractFromImage(file.path).then((extracted) => {
+      this.logger.debug(
+        `OCR extracted data for receipt ${saved.id}: ${JSON.stringify(
+          extracted,
+        )}`,
+      );
     });
 
     return this.toReceiptResponse(saved);
