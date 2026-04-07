@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Dashboard – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDateRange, statusBadge, renderProgress, showToast, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const id = getParam('id');
+    if (!id) { window.location.href = '/trips.html'; throw new Error('no id'); }
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard' },
+    ]);
+
+    async function load() {
+      try {
+        const d = await apiJson(`/trips/${id}/dashboard`);
+        const t = d.trip;
+        const p = d.progress;
+
+        document.title = `${t.title} – Travel Tracker`;
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">${escapeHtml(t.title)}</h1>
+              <div style="color:var(--gray-500);font-size:.875rem;margin-top:.25rem">
+                ${t.destination ? `📍 ${escapeHtml(t.destination)} · ` : ''}
+                📅 ${formatDateRange(t.startDate, t.endDate)}
+                · ${statusBadge(t.status)}
+                ${t.tripType ? ` · <span class="badge badge-gray">${escapeHtml(t.tripType)}</span>` : ''}
+                ${t.climate ? ` · ${escapeHtml(t.climate)}` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:.5rem">
+              <a href="/trip-form.html?id=${t.id}" class="btn btn-outline btn-sm">✏ Edit</a>
+              <button class="btn btn-danger btn-sm" id="delete-btn">🗑 Delete</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Checklist Progress</div>
+            <div style="margin-top:.5rem">
+              ${renderProgress(p.completed, p.total)}
+            </div>
+            ${p.overdueCount > 0 ? `<div style="margin-top:.5rem"><span class="badge badge-danger">${p.overdueCount} overdue</span></div>` : ''}
+            ${d.nextPendingTask ? `
+              <div style="margin-top:.75rem;font-size:.875rem;color:var(--gray-600)">
+                <strong>Next:</strong> ${escapeHtml(d.nextPendingTask.title)}
+                ${d.nextPendingTask.dueDate ? ` · Due ${new Date(d.nextPendingTask.dueDate).toLocaleDateString()}` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <h2 class="section-title">Quick Links</h2>
+          <div class="quick-links">
+            <a class="quick-link" href="/checklist.html?tripId=${t.id}">📋 Checklist</a>
+            <a class="quick-link" href="/packing.html?tripId=${t.id}">🎒 Packing</a>
+            <a class="quick-link" href="/expenses.html?tripId=${t.id}">💰 Expenses</a>
+            <a class="quick-link" href="/itinerary.html?tripId=${t.id}">📅 Itinerary</a>
+          </div>
+        `;
+
+        document.getElementById('delete-btn').addEventListener('click', async () => {
+          if (!confirmAction('Delete this trip? This cannot be undone.')) return;
+          try {
+            await apiJson(`/trips/${id}`, { method: 'DELETE' });
+            showToast('Trip deleted');
+            window.location.href = '/trips.html';
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

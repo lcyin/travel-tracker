@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <h1 class="page-title" id="page-title">New Trip</h1>
+    <div class="card form-card" style="max-width:600px">
+      <div id="error"></div>
+      <form id="trip-form">
+        <div class="form-group">
+          <label class="form-label" for="title">Trip Title *</label>
+          <input class="form-input" id="title" required maxlength="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="destination">Destination</label>
+          <input class="form-input" id="destination" maxlength="200">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="startDate">Start Date</label>
+            <input class="form-input" type="date" id="startDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="endDate">End Date</label>
+            <input class="form-input" type="date" id="endDate">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="tripType">Trip Type</label>
+            <select class="form-select" id="tripType">
+              <option value="">Select...</option>
+              <option value="Leisure">Leisure</option>
+              <option value="Business">Business</option>
+              <option value="Adventure">Adventure</option>
+              <option value="Family">Family</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="climate">Climate</label>
+            <select class="form-select" id="climate">
+              <option value="">Select...</option>
+              <option value="Warm">Warm</option>
+              <option value="Cool">Cool</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Cold">Cold</option>
+              <option value="Rainy">Rainy</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="baseCurrency">Base Currency</label>
+          <input class="form-input" id="baseCurrency" maxlength="3" placeholder="USD" style="width:100px">
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:1rem">
+          <button class="btn btn-primary" type="submit" id="submit-btn">Create Trip</button>
+          <a href="/trips.html" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, showAlert, showToast } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const id = getParam('id');
+    const isEdit = !!id;
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: isEdit ? 'Edit Trip' : 'New Trip' },
+    ]);
+
+    if (isEdit) {
+      document.getElementById('page-title').textContent = 'Edit Trip';
+      document.getElementById('submit-btn').textContent = 'Save Changes';
+      loadTrip();
+    }
+
+    async function loadTrip() {
+      try {
+        const trip = await apiJson(`/trips/${id}`);
+        document.getElementById('title').value = trip.title || '';
+        document.getElementById('destination').value = trip.destination || '';
+        document.getElementById('startDate').value = trip.startDate || '';
+        document.getElementById('endDate').value = trip.endDate || '';
+        document.getElementById('tripType').value = trip.tripType || '';
+        document.getElementById('climate').value = trip.climate || '';
+        document.getElementById('baseCurrency').value = trip.baseCurrency || '';
+      } catch (err) {
+        showAlert(document.getElementById('error'), err.message);
+      }
+    }
+
+    document.getElementById('trip-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      if (start && end && end < start) {
+        showAlert(document.getElementById('error'), 'End date must be after start date');
+        return;
+      }
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+
+      const body = {
+        title: document.getElementById('title').value,
+        destination: document.getElementById('destination').value || undefined,
+        startDate: start || undefined,
+        endDate: end || undefined,
+        tripType: document.getElementById('tripType').value || undefined,
+        climate: document.getElementById('climate').value || undefined,
+        baseCurrency: document.getElementById('baseCurrency').value || undefined,
+      };
+
+      try {
+        if (isEdit) {
+          await apiJson(`/trips/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+          showToast('Trip updated');
+          window.location.href = `/trip-dashboard.html?id=${id}`;
+        } else {
+          const trip = await apiJson('/trips', { method: 'POST', body: JSON.stringify(body) });
+          showToast('Trip created');
+          window.location.href = `/trip-dashboard.html?id=${trip.id}`;
+        }
+      } catch (err) {
+        showAlert(document.getElementById('error'), err.message);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

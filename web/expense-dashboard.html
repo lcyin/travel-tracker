@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Dashboard – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div class="page-header">
+      <h1 class="page-title">Expense Dashboard</h1>
+      <a id="back-link" class="btn btn-outline btn-sm">← Expense List</a>
+    </div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- Budget Modal -->
+  <div class="modal-overlay" id="budget-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="budget-modal-title">Set Budget</h3>
+        <button class="modal-close" id="budget-close">&times;</button>
+      </div>
+      <form id="budget-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="b-amount">Total Budget *</label>
+            <input class="form-input" type="number" id="b-amount" step="0.01" min="1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="b-currency">Currency *</label>
+            <input class="form-input" id="b-currency" required maxlength="3" placeholder="USD">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="b-threshold">Warning Threshold (%)</label>
+          <input class="form-input" type="number" id="b-threshold" min="1" max="100" value="80">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category Limits (optional)</label>
+          <div id="cat-limits"></div>
+          <button type="button" class="btn btn-outline btn-sm" id="add-cat-limit" style="margin-top:.5rem">+ Add Category</button>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" type="button" id="budget-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatCurrency, categoryLabel, formatDate, renderProgress, showToast, emptyState, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    document.getElementById('back-link').href = `/expenses.html?tripId=${tripId}`;
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Expenses', href: `/expenses.html?tripId=${tripId}` },
+      { label: 'Dashboard' },
+    ]);
+
+    // Budget modal
+    const budgetModal = document.getElementById('budget-modal');
+    const closeBudget = () => budgetModal.classList.remove('active');
+    document.getElementById('budget-close').onclick = closeBudget;
+    document.getElementById('budget-cancel').onclick = closeBudget;
+    budgetModal.addEventListener('click', (e) => { if (e.target === budgetModal) closeBudget(); });
+
+    const categories = ['food', 'transport', 'accommodation', 'shopping', 'tickets_activities', 'cash', 'other'];
+    let catLimitCount = 0;
+
+    document.getElementById('add-cat-limit').addEventListener('click', () => {
+      const idx = catLimitCount++;
+      const div = document.createElement('div');
+      div.className = 'form-row';
+      div.style.marginBottom = '.5rem';
+      div.innerHTML = `
+        <select class="form-select cat-key">${categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+        <input class="form-input cat-val" type="number" step="0.01" placeholder="Limit">
+      `;
+      document.getElementById('cat-limits').appendChild(div);
+    });
+
+    let currentBudget = null;
+
+    document.getElementById('budget-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const catLimitsEls = document.getElementById('cat-limits').querySelectorAll('.form-row');
+      const categoryLimits = {};
+      catLimitsEls.forEach(row => {
+        const key = row.querySelector('.cat-key').value;
+        const val = parseFloat(row.querySelector('.cat-val').value);
+        if (key && val > 0) categoryLimits[key] = val;
+      });
+
+      const body = {
+        totalAmount: parseFloat(document.getElementById('b-amount').value),
+        baseCurrency: document.getElementById('b-currency').value.toUpperCase(),
+        warningThreshold: parseInt(document.getElementById('b-threshold').value) || 80,
+        categoryLimits: Object.keys(categoryLimits).length ? categoryLimits : undefined,
+      };
+
+      try {
+        if (currentBudget) {
+          await apiJson(`/trips/${tripId}/expenses/budget`, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('Budget updated');
+        } else {
+          await apiJson(`/trips/${tripId}/expenses/budget`, { method: 'POST', body: JSON.stringify(body) });
+          showToast('Budget created');
+        }
+        closeBudget();
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    async function deleteBudget() {
+      if (!confirmAction('Delete budget?')) return;
+      try {
+        await apiJson(`/trips/${tripId}/expenses/budget`, { method: 'DELETE' });
+        showToast('Budget deleted');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function load() {
+      try {
+        const data = await apiJson(`/trips/${tripId}/expenses/dashboard`);
+        const s = data.summary;
+        const b = data.budget;
+        currentBudget = b;
+
+        const content = document.getElementById('content');
+        let html = '';
+
+        // Summary stats
+        html += `
+          <div class="stat-grid">
+            <div class="card stat-card">
+              <div class="stat-value">${formatCurrency(s.totalSpent, s.baseCurrency)}</div>
+              <div class="stat-label">Total Spent</div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-value">${s.transactionCount}</div>
+              <div class="stat-label">Transactions</div>
+            </div>
+            <div class="card stat-card">
+              <div class="stat-value">${formatCurrency(s.averagePerDay, s.baseCurrency)}</div>
+              <div class="stat-label">Avg / Day</div>
+            </div>
+            ${s.needsReviewCount ? `
+              <div class="card stat-card">
+                <div class="stat-value" style="color:var(--warning)">${s.needsReviewCount}</div>
+                <div class="stat-label">Needs Review</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        // Budget
+        html += `
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Budget</span>
+              <div style="display:flex;gap:.5rem">
+                <button class="btn btn-primary btn-sm" id="edit-budget-btn">${b ? '✏ Edit' : '+ Set Budget'}</button>
+                ${b ? '<button class="btn btn-danger btn-sm" id="del-budget-btn">🗑</button>' : ''}
+              </div>
+            </div>
+            ${b ? `
+              <div style="margin-bottom:.5rem">
+                <strong>${formatCurrency(b.spent, b.baseCurrency)}</strong> of <strong>${formatCurrency(b.totalAmount, b.baseCurrency)}</strong>
+                <span style="float:right">${formatCurrency(b.remaining, b.baseCurrency)} remaining</span>
+              </div>
+              ${renderProgress(b.spent, b.totalAmount)}
+              ${b.percentageUsed >= 100 ? '<div class="alert alert-danger" style="margin-top:.5rem">⚠ Over budget!</div>' : ''}
+              ${b.percentageUsed >= b.warningThreshold && b.percentageUsed < 100 ? '<div class="alert alert-warning" style="margin-top:.5rem">⚠ Approaching budget limit</div>' : ''}
+            ` : '<div style="color:var(--gray-400);font-size:.875rem">No budget set.</div>'}
+          </div>
+        `;
+
+        // Category breakdown
+        if (s.byCategory?.length) {
+          html += `
+            <div class="card">
+              <div class="card-title">By Category</div>
+              <table>
+                <thead><tr><th>Category</th><th>Amount</th><th>%</th><th>Count</th></tr></thead>
+                <tbody>
+                  ${s.byCategory.map(c => `
+                    <tr>
+                      <td>${categoryLabel(c.category)}</td>
+                      <td>${formatCurrency(c.amount, s.baseCurrency)}</td>
+                      <td>${c.percentage}%</td>
+                      <td>${c.count}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        // Top merchants
+        if (s.byMerchant?.length) {
+          html += `
+            <div class="card">
+              <div class="card-title">Top Merchants</div>
+              <table>
+                <thead><tr><th>Merchant</th><th>Amount</th><th>Count</th></tr></thead>
+                <tbody>
+                  ${s.byMerchant.map(m => `
+                    <tr>
+                      <td>${escapeHtml(m.merchantName)}</td>
+                      <td>${formatCurrency(m.amount, s.baseCurrency)}</td>
+                      <td>${m.count}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        // Daily trend
+        if (s.dailyTrend?.length) {
+          const maxAmt = Math.max(...s.dailyTrend.map(d => d.amount));
+          html += `
+            <div class="card">
+              <div class="card-title">Daily Spending</div>
+              ${s.dailyTrend.map(d => `
+                <div style="display:flex;align-items:center;gap:.5rem;margin:.25rem 0;font-size:.875rem">
+                  <span style="min-width:90px">${formatDate(d.date)}</span>
+                  <div style="flex:1;background:var(--gray-100);border-radius:4px;height:20px">
+                    <div style="background:var(--primary);height:100%;border-radius:4px;width:${maxAmt > 0 ? (d.amount / maxAmt * 100) : 0}%"></div>
+                  </div>
+                  <span style="min-width:80px;text-align:right">${formatCurrency(d.amount, s.baseCurrency)}</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        content.innerHTML = html;
+
+        // Budget button handlers
+        document.getElementById('edit-budget-btn').addEventListener('click', () => {
+          catLimitCount = 0;
+          document.getElementById('cat-limits').innerHTML = '';
+          if (b) {
+            document.getElementById('budget-modal-title').textContent = 'Edit Budget';
+            document.getElementById('b-amount').value = b.totalAmount;
+            document.getElementById('b-currency').value = b.baseCurrency;
+            document.getElementById('b-threshold').value = b.warningThreshold;
+            if (b.categoryLimits) {
+              for (const [key, val] of Object.entries(b.categoryLimits)) {
+                document.getElementById('add-cat-limit').click();
+                const rows = document.getElementById('cat-limits').querySelectorAll('.form-row');
+                const last = rows[rows.length - 1];
+                last.querySelector('.cat-key').value = key;
+                last.querySelector('.cat-val').value = val;
+              }
+            }
+          } else {
+            document.getElementById('budget-modal-title').textContent = 'Set Budget';
+            document.getElementById('budget-form').reset();
+            document.getElementById('b-threshold').value = '80';
+          }
+          budgetModal.classList.add('active');
+        });
+
+        const delBtn = document.getElementById('del-budget-btn');
+        if (delBtn) delBtn.addEventListener('click', deleteBudget);
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

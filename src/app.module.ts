@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from 'joi';
+import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
 import { ChecklistModule } from './checklist/checklist.module';
 import { ExpensesModule } from './expenses/expenses.module';
@@ -12,6 +14,9 @@ import { TripsModule } from './trips/trips.module';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'web'),
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({

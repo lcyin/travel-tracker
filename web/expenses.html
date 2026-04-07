@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expenses – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container-wide">
+    <div id="breadcrumb"></div>
+    <div class="page-header">
+      <h1 class="page-title">Expenses</h1>
+      <div style="display:flex;gap:.5rem">
+        <a href="#" class="btn btn-outline btn-sm" id="dashboard-link">📊 Dashboard</a>
+        <a href="#" class="btn btn-outline btn-sm" id="export-btn">📥 Export CSV</a>
+        <a href="#" class="btn btn-primary btn-sm" id="add-link">+ Add Expense</a>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="form-group">
+        <select class="form-select" id="f-category">
+          <option value="">All Categories</option>
+          <option value="food">Food</option>
+          <option value="transport">Transport</option>
+          <option value="accommodation">Accommodation</option>
+          <option value="shopping">Shopping</option>
+          <option value="tickets_activities">Activities</option>
+          <option value="cash">Cash</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <select class="form-select" id="f-payment">
+          <option value="">All Payment</option>
+          <option value="credit_card">Credit Card</option>
+          <option value="debit_card">Debit Card</option>
+          <option value="cash">Cash</option>
+          <option value="bank_transfer">Bank Transfer</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <input class="form-input" type="date" id="f-from" placeholder="From">
+      </div>
+      <div class="form-group">
+        <input class="form-input" type="date" id="f-to" placeholder="To">
+      </div>
+      <button class="btn btn-outline btn-sm" id="clear-filters">Clear</button>
+    </div>
+
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <script type="module">
+    import { apiJson, api } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDate, formatCurrency, categoryLabel, showToast, emptyState, escapeHtml } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    document.getElementById('dashboard-link').href = `/expense-dashboard.html?tripId=${tripId}`;
+    document.getElementById('add-link').href = `/expense-form.html?tripId=${tripId}`;
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Expenses' },
+    ]);
+
+    // Filters
+    ['f-category', 'f-payment', 'f-from', 'f-to'].forEach(id => {
+      document.getElementById(id).addEventListener('change', load);
+    });
+    document.getElementById('clear-filters').addEventListener('click', () => {
+      ['f-category', 'f-payment', 'f-from', 'f-to'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      load();
+    });
+
+    // CSV export
+    document.getElementById('export-btn').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const params = buildParams();
+        const res = await api(`/trips/${tripId}/expenses/export/csv?${params}`);
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `expenses-${tripId}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('CSV exported');
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    function buildParams() {
+      const params = new URLSearchParams();
+      const cat = document.getElementById('f-category').value;
+      const pay = document.getElementById('f-payment').value;
+      const from = document.getElementById('f-from').value;
+      const to = document.getElementById('f-to').value;
+      if (cat) params.set('category', cat);
+      if (pay) params.set('paymentMethod', pay);
+      if (from) params.set('dateFrom', from);
+      if (to) params.set('dateTo', to);
+      return params.toString();
+    }
+
+    function paymentLabel(m) {
+      const map = { credit_card: '💳 Credit', debit_card: '💳 Debit', cash: '💵 Cash', bank_transfer: '🏦 Transfer', other: 'Other' };
+      return map[m] || m || '—';
+    }
+
+    async function load() {
+      try {
+        const params = buildParams();
+        const expenses = await apiJson(`/trips/${tripId}/expenses?${params}`);
+        const content = document.getElementById('content');
+
+        if (!expenses.length) {
+          content.innerHTML = emptyState('💰', 'No expenses found.');
+          return;
+        }
+
+        content.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Merchant</th>
+                  <th>Category</th>
+                  <th>Amount</th>
+                  <th>Base Amount</th>
+                  <th>Payment</th>
+                  <th>Receipt</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenses.map(e => `
+                  <tr class="clickable" data-id="${e.id}">
+                    <td>${formatDate(e.occurredAt)}</td>
+                    <td>${escapeHtml(e.merchantName) || '—'}</td>
+                    <td>${categoryLabel(e.category)}</td>
+                    <td><strong>${formatCurrency(e.amount, e.currency)}</strong></td>
+                    <td>${e.baseAmount ? formatCurrency(e.baseAmount, e.baseCurrency) : '—'}</td>
+                    <td>${paymentLabel(e.paymentMethod)}</td>
+                    <td>${e.receipts?.length ? '📎' : ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        content.querySelectorAll('tr.clickable').forEach(row => {
+          row.addEventListener('click', () => {
+            window.location.href = `/expense-detail.html?tripId=${tripId}&id=${row.dataset.id}`;
+          });
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

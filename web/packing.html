@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Packing List – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div class="page-header">
+      <h1 class="page-title">Packing List</h1>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-outline btn-sm" id="suggest-btn">✨ AI Suggestions</button>
+        <button class="btn btn-primary btn-sm" id="add-btn">+ Add Item</button>
+      </div>
+    </div>
+    <div id="progress-bar"></div>
+    <div class="filter-bar" id="filters">
+      <div class="form-group">
+        <select class="form-select" id="filter-category">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <select class="form-select" id="filter-packed">
+          <option value="">All</option>
+          <option value="false">Unpacked</option>
+          <option value="true">Packed</option>
+        </select>
+      </div>
+    </div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="item-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Add Item</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="item-form">
+        <input type="hidden" id="item-id">
+        <div class="form-group">
+          <label class="form-label" for="item-name">Name *</label>
+          <input class="form-input" id="item-name" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="item-quantity">Qty</label>
+            <input class="form-input" type="number" id="item-quantity" min="1" value="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="item-category">Category</label>
+            <select class="form-select" id="item-category">
+              <option value="">Select...</option>
+              <option value="Clothes">Clothes</option>
+              <option value="Toiletries">Toiletries</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Documents">Documents</option>
+              <option value="Misc">Misc</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" type="button" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Suggestions Modal -->
+  <div class="modal-overlay" id="suggest-modal">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <h3 class="modal-title">AI Packing Suggestions</h3>
+        <button class="modal-close" id="suggest-close">&times;</button>
+      </div>
+      <div id="suggest-content"><div class="loading">Generating suggestions...</div></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" type="button" id="suggest-cancel">Cancel</button>
+        <button class="btn btn-primary" id="accept-btn" style="display:none">Accept Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, renderProgress, showToast, emptyState, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Packing' },
+    ]);
+
+    // Modal helpers
+    const itemModal = document.getElementById('item-modal');
+    const suggestModal = document.getElementById('suggest-modal');
+    const closeItem = () => itemModal.classList.remove('active');
+    const closeSuggest = () => suggestModal.classList.remove('active');
+    document.getElementById('modal-close').onclick = closeItem;
+    document.getElementById('modal-cancel').onclick = closeItem;
+    itemModal.addEventListener('click', (e) => { if (e.target === itemModal) closeItem(); });
+    document.getElementById('suggest-close').onclick = closeSuggest;
+    document.getElementById('suggest-cancel').onclick = closeSuggest;
+    suggestModal.addEventListener('click', (e) => { if (e.target === suggestModal) closeSuggest(); });
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      document.getElementById('modal-title').textContent = 'Add Item';
+      document.getElementById('item-form').reset();
+      document.getElementById('item-id').value = '';
+      document.getElementById('item-quantity').value = '1';
+      itemModal.classList.add('active');
+    });
+
+    // Filters
+    document.getElementById('filter-category').addEventListener('change', load);
+    document.getElementById('filter-packed').addEventListener('change', load);
+
+    // Form submit
+    document.getElementById('item-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const itemId = document.getElementById('item-id').value;
+      const body = {
+        name: document.getElementById('item-name').value,
+        quantity: parseInt(document.getElementById('item-quantity').value) || 1,
+        category: document.getElementById('item-category').value || undefined,
+      };
+      try {
+        if (itemId) {
+          await apiJson(`/trips/${tripId}/packing/${itemId}`, { method: 'PATCH', body: JSON.stringify(body) });
+          showToast('Item updated');
+        } else {
+          await apiJson(`/trips/${tripId}/packing`, { method: 'POST', body: JSON.stringify(body) });
+          showToast('Item added');
+        }
+        closeItem();
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    async function togglePacked(itemId, isPacked) {
+      try {
+        await apiJson(`/trips/${tripId}/packing/${itemId}`, { method: 'PATCH', body: JSON.stringify({ isPacked: !isPacked }) });
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function deleteItem(itemId) {
+      if (!confirmAction('Delete this item?')) return;
+      try {
+        await apiJson(`/trips/${tripId}/packing/${itemId}`, { method: 'DELETE' });
+        showToast('Item deleted');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    let itemsMap = {};
+
+    async function load() {
+      try {
+        const params = new URLSearchParams();
+        const cat = document.getElementById('filter-category').value;
+        const packed = document.getElementById('filter-packed').value;
+        if (cat) params.set('category', cat);
+        if (packed) params.set('isPacked', packed);
+
+        const [items, progress] = await Promise.all([
+          apiJson(`/trips/${tripId}/packing?${params}`),
+          apiJson(`/trips/${tripId}/packing/progress`),
+        ]);
+
+        document.getElementById('progress-bar').innerHTML = renderProgress(progress.packed, progress.total);
+
+        itemsMap = {};
+        items.forEach(i => itemsMap[i.id] = i);
+
+        // Build category filter options
+        const categories = [...new Set(items.map(i => i.category).filter(Boolean))];
+        const catSelect = document.getElementById('filter-category');
+        const currentCat = catSelect.value;
+        catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c}" ${c === currentCat ? 'selected' : ''}>${c}</option>`).join('');
+
+        const content = document.getElementById('content');
+        if (!items.length) {
+          content.innerHTML = emptyState('🎒', 'No packing items. Add items or try AI suggestions!');
+          return;
+        }
+
+        // Group by category
+        const groups = {};
+        items.forEach(i => {
+          const g = i.category || 'Uncategorized';
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(i);
+        });
+
+        let html = '';
+        for (const [group, groupItems] of Object.entries(groups)) {
+          html += `<h2 class="section-title">${escapeHtml(group)}</h2><div class="card">`;
+          for (const item of groupItems) {
+            html += `
+              <div class="packing-item">
+                <input type="checkbox" class="task-checkbox" data-id="${item.id}" ${item.isPacked ? 'checked' : ''}>
+                <div style="flex:1">
+                  <span class="${item.isPacked ? 'task-title-done' : ''}">${escapeHtml(item.name)}</span>
+                  ${item.quantity > 1 ? `<span class="badge badge-gray">×${item.quantity}</span>` : ''}
+                </div>
+                <div class="task-actions">
+                  <button class="btn btn-outline btn-sm edit-btn" data-id="${item.id}">✏</button>
+                  <button class="btn btn-danger btn-sm del-btn" data-id="${item.id}">🗑</button>
+                </div>
+              </div>
+            `;
+          }
+          html += '</div>';
+        }
+        content.innerHTML = html;
+
+        content.querySelectorAll('.task-checkbox').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const item = itemsMap[cb.dataset.id];
+            if (item) togglePacked(item.id, item.isPacked);
+          });
+        });
+        content.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const item = itemsMap[btn.dataset.id];
+            if (!item) return;
+            document.getElementById('modal-title').textContent = 'Edit Item';
+            document.getElementById('item-id').value = item.id;
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-quantity').value = item.quantity;
+            document.getElementById('item-category').value = item.category || '';
+            itemModal.classList.add('active');
+          });
+        });
+        content.querySelectorAll('.del-btn').forEach(btn => {
+          btn.addEventListener('click', () => deleteItem(btn.dataset.id));
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    // AI Suggestions
+    document.getElementById('suggest-btn').addEventListener('click', async () => {
+      suggestModal.classList.add('active');
+      document.getElementById('accept-btn').style.display = 'none';
+      document.getElementById('suggest-content').innerHTML = '<div class="loading">Generating AI suggestions...</div>';
+      try {
+        const data = await apiJson(`/trips/${tripId}/packing/suggestions`);
+        const suggestions = data.suggestions || {};
+        let html = '';
+        for (const [cat, items] of Object.entries(suggestions)) {
+          html += `<h3 class="section-title">${escapeHtml(cat)}</h3>`;
+          for (const item of items) {
+            html += `
+              <label class="packing-item" style="cursor:pointer">
+                <input type="checkbox" class="task-checkbox suggest-cb" data-key="${escapeHtml(item.key)}" checked>
+                <span>${escapeHtml(item.name)} ×${item.quantity}</span>
+              </label>
+            `;
+          }
+        }
+        if (!html) html = emptyState('🤔', 'No suggestions available for this trip.');
+        document.getElementById('suggest-content').innerHTML = html;
+        if (html && data.total > 0) document.getElementById('accept-btn').style.display = '';
+      } catch (err) {
+        document.getElementById('suggest-content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    });
+
+    document.getElementById('accept-btn').addEventListener('click', async () => {
+      const selected = [...document.querySelectorAll('.suggest-cb:checked')].map(cb => cb.dataset.key);
+      if (!selected.length) { showToast('Select at least one item', 'error'); return; }
+      try {
+        await apiJson(`/trips/${tripId}/packing/suggestions/accept`, {
+          method: 'POST',
+          body: JSON.stringify({ keys: selected }),
+        });
+        showToast(`Added ${selected.length} items`);
+        closeSuggest();
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    load();
+  </script>
+</body>
+</html>

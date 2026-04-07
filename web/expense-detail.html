@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Detail – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <script type="module">
+    import { apiJson, api } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDateTime, formatCurrency, categoryLabel, showToast, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    const id = getParam('id');
+    if (!tripId || !id) { window.location.href = '/trips.html'; throw new Error('missing params'); }
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Expenses', href: `/expenses.html?tripId=${tripId}` },
+      { label: 'Detail' },
+    ]);
+
+    function paymentLabel(m) {
+      const map = { credit_card: '💳 Credit Card', debit_card: '💳 Debit Card', cash: '💵 Cash', bank_transfer: '🏦 Bank Transfer', other: 'Other' };
+      return map[m] || m || '—';
+    }
+
+    function sourceLabel(s) {
+      const map = { manual: 'Manual', ocr: 'OCR Scan', quick_add: 'Quick Add', draft: 'Draft' };
+      return map[s] || s || '—';
+    }
+
+    function statusBadge(s) {
+      const map = {
+        none: '', success: '<span class="badge badge-success">Extracted</span>',
+        pending: '<span class="badge badge-warning">Processing</span>',
+        failed: '<span class="badge badge-danger">Failed</span>',
+        needs_review: '<span class="badge badge-warning">Needs Review</span>',
+      };
+      return map[s] || '';
+    }
+
+    async function load() {
+      try {
+        const e = await apiJson(`/trips/${tripId}/expenses/${id}`);
+        document.title = `${e.merchantName || 'Expense'} – Travel Tracker`;
+
+        const content = document.getElementById('content');
+        content.innerHTML = `
+          <div class="page-header">
+            <h1 class="page-title">${escapeHtml(e.merchantName) || 'Expense Detail'}</h1>
+            <div style="display:flex;gap:.5rem">
+              <a href="/expense-form.html?tripId=${tripId}&id=${id}" class="btn btn-outline btn-sm">✏ Edit</a>
+              <button class="btn btn-danger btn-sm" id="delete-btn">🗑 Delete</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-value">${formatCurrency(e.amount, e.currency)}</div>
+                <div class="stat-label">Original Amount</div>
+              </div>
+              ${e.baseAmount ? `
+                <div class="stat-card">
+                  <div class="stat-value">${formatCurrency(e.baseAmount, e.baseCurrency)}</div>
+                  <div class="stat-label">Base Amount</div>
+                </div>
+              ` : ''}
+            </div>
+
+            <table>
+              <tbody>
+                <tr><td><strong>Date</strong></td><td>${formatDateTime(e.occurredAt)}</td></tr>
+                <tr><td><strong>Category</strong></td><td>${categoryLabel(e.category)}</td></tr>
+                <tr><td><strong>Payment</strong></td><td>${paymentLabel(e.paymentMethod)}</td></tr>
+                <tr><td><strong>Source</strong></td><td>${sourceLabel(e.source)}</td></tr>
+                ${e.exchangeRate ? `<tr><td><strong>Exchange Rate</strong></td><td>${e.exchangeRate} (${escapeHtml(e.exchangeRateSource || '')})</td></tr>` : ''}
+                ${e.notes ? `<tr><td><strong>Notes</strong></td><td>${escapeHtml(e.notes)}</td></tr>` : ''}
+                <tr><td><strong>Status</strong></td><td>${statusBadge(e.extractionStatus) || '—'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 class="section-title">Receipts</h2>
+          <div class="card">
+            <div id="receipts">${renderReceipts(e.receipts || [])}</div>
+            <div style="margin-top:1rem">
+              <label class="form-label">Upload Receipt</label>
+              <input type="file" id="receipt-file" accept="image/jpeg,image/png,image/webp">
+              <button class="btn btn-primary btn-sm" id="upload-btn" style="margin-top:.5rem" disabled>Upload</button>
+            </div>
+          </div>
+        `;
+
+        // Delete expense
+        document.getElementById('delete-btn').addEventListener('click', async () => {
+          if (!confirmAction('Delete this expense?')) return;
+          try {
+            await apiJson(`/trips/${tripId}/expenses/${id}`, { method: 'DELETE' });
+            showToast('Expense deleted');
+            window.location.href = `/expenses.html?tripId=${tripId}`;
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+
+        // Upload receipt
+        const fileInput = document.getElementById('receipt-file');
+        const uploadBtn = document.getElementById('upload-btn');
+        fileInput.addEventListener('change', () => { uploadBtn.disabled = !fileInput.files.length; });
+
+        uploadBtn.addEventListener('click', async () => {
+          if (!fileInput.files.length) return;
+          uploadBtn.disabled = true;
+          uploadBtn.textContent = 'Uploading...';
+          const formData = new FormData();
+          formData.append('file', fileInput.files[0]);
+          try {
+            const res = await api(`/trips/${tripId}/expenses/${id}/receipts`, {
+              method: 'POST',
+              body: formData,
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            showToast('Receipt uploaded');
+            load(); // Reload
+          } catch (err) {
+            showToast(err.message, 'error');
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Upload';
+          }
+        });
+
+        // Delete receipt handlers
+        document.querySelectorAll('.del-receipt').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirmAction('Delete this receipt?')) return;
+            try {
+              await apiJson(`/trips/${tripId}/expenses/receipts/${btn.dataset.id}`, { method: 'DELETE' });
+              showToast('Receipt deleted');
+              load();
+            } catch (err) { showToast(err.message, 'error'); }
+          });
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    function renderReceipts(receipts) {
+      if (!receipts.length) return '<div style="color:var(--gray-400);font-size:.875rem">No receipts attached.</div>';
+      return receipts.map(r => `
+        <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--gray-100)">
+          <div style="flex:1">
+            <div style="font-size:.875rem">${escapeHtml(r.mimeType)} ${r.fileSize ? `(${Math.round(r.fileSize / 1024)}KB)` : ''}</div>
+            <div class="task-meta">${formatDateTime(r.uploadedAt)}</div>
+            ${r.confidenceScore != null ? `<div class="task-meta">Confidence: ${(r.confidenceScore * 100).toFixed(0)}%</div>` : ''}
+          </div>
+          <button class="btn btn-danger btn-sm del-receipt" data-id="${r.id}">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    load();
+  </script>
+</body>
+</html>

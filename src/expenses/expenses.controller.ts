@@ -147,6 +147,68 @@ export class ExpensesController {
     return this.expensesService.getDashboard(tripId, user.sub);
   }
 
+  // ==================== BUDGET ENDPOINTS ====================
+  // NOTE: Budget routes must be registered before the :id wildcard routes
+  // to prevent "budget" from being captured as an expense ID.
+
+  @Get('budget/summary')
+  @ApiOperation({ summary: 'Get budget and spending summary' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: BudgetResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Budget not found' })
+  async getBudget(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<BudgetResponseDto> {
+    return this.expensesService.getBudget(tripId, user.sub);
+  }
+
+  @Post('budget')
+  @ApiOperation({ summary: 'Create a budget for a trip' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiCreatedResponse({ type: BudgetResponseDto })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  async createBudget(
+    @Param('tripId') tripId: string,
+    @Body() dto: CreateBudgetDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<BudgetResponseDto> {
+    return this.expensesService.createBudget(tripId, dto, user.sub);
+  }
+
+  @Put('budget')
+  @ApiOperation({ summary: 'Update budget' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: BudgetResponseDto })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Budget not found' })
+  async updateBudget(
+    @Param('tripId') tripId: string,
+    @Body() dto: UpdateBudgetDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<BudgetResponseDto> {
+    return this.expensesService.updateBudget(tripId, dto, user.sub);
+  }
+
+  @Delete('budget')
+  @ApiOperation({ summary: 'Delete budget' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: DeleteResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Budget not found' })
+  async deleteBudget(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<DeleteResponseDto> {
+    return this.expensesService.deleteBudget(tripId, user.sub);
+  }
+
+  // ==================== EXPENSE :id WILDCARD ENDPOINTS ====================
+
   @Get(':id')
   @ApiOperation({ summary: 'Get expense by ID' })
   @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
@@ -251,63 +313,7 @@ export class ExpensesController {
     return this.expensesService.removeReceipt(receiptId, user.sub);
   }
 
-  // ==================== BUDGET ENDPOINTS ====================
-
-  @Get('budget/summary')
-  @ApiOperation({ summary: 'Get budget and spending summary' })
-  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
-  @ApiOkResponse({ type: BudgetResponseDto })
-  @ApiUnauthorizedResponse()
-  @ApiNotFoundResponse({ description: 'Budget not found' })
-  async getBudget(
-    @Param('tripId') tripId: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ): Promise<BudgetResponseDto> {
-    return this.expensesService.getBudget(tripId, user.sub);
-  }
-
-  @Post('budget')
-  @ApiOperation({ summary: 'Create a budget for a trip' })
-  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
-  @ApiCreatedResponse({ type: BudgetResponseDto })
-  @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
-  @ApiNotFoundResponse({ description: 'Trip not found' })
-  async createBudget(
-    @Param('tripId') tripId: string,
-    @Body() dto: CreateBudgetDto,
-    @CurrentUser() user: CurrentUserPayload,
-  ): Promise<BudgetResponseDto> {
-    return this.expensesService.createBudget(tripId, dto, user.sub);
-  }
-
-  @Put('budget')
-  @ApiOperation({ summary: 'Update budget' })
-  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
-  @ApiOkResponse({ type: BudgetResponseDto })
-  @ApiBadRequestResponse()
-  @ApiUnauthorizedResponse()
-  @ApiNotFoundResponse({ description: 'Budget not found' })
-  async updateBudget(
-    @Param('tripId') tripId: string,
-    @Body() dto: UpdateBudgetDto,
-    @CurrentUser() user: CurrentUserPayload,
-  ): Promise<BudgetResponseDto> {
-    return this.expensesService.updateBudget(tripId, dto, user.sub);
-  }
-
-  @Delete('budget')
-  @ApiOperation({ summary: 'Delete budget' })
-  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
-  @ApiOkResponse({ type: DeleteResponseDto })
-  @ApiUnauthorizedResponse()
-  @ApiNotFoundResponse({ description: 'Budget not found' })
-  async deleteBudget(
-    @Param('tripId') tripId: string,
-    @CurrentUser() user: CurrentUserPayload,
-  ): Promise<DeleteResponseDto> {
-    return this.expensesService.deleteBudget(tripId, user.sub);
-  }
+  // ==================== OCR ENDPOINTS ====================
 
   @ApiOperation({ summary: 'Extract receipt data using OCR' })
   @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div class="page-header">
+      <h1 class="page-title">Checklist</h1>
+      <button class="btn btn-primary btn-sm" id="add-btn">+ Add Task</button>
+    </div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <div class="modal-overlay" id="task-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Add Task</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="task-form">
+        <input type="hidden" id="task-id">
+        <div class="form-group">
+          <label class="form-label" for="task-title">Title *</label>
+          <input class="form-input" id="task-title" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="task-category">Category</label>
+            <select class="form-select" id="task-category">
+              <option value="">Select...</option>
+              <option value="Logistics">Logistics</option>
+              <option value="Documents">Documents</option>
+              <option value="Money">Money</option>
+              <option value="Communication">Communication</option>
+              <option value="Packing">Packing</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="task-due">Due Date</label>
+            <input class="form-input" type="date" id="task-due">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="task-notes">Notes</label>
+          <textarea class="form-textarea" id="task-notes"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" type="button" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDate, showToast, emptyState, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Checklist' },
+    ]);
+
+    const modal = document.getElementById('task-modal');
+    const closeModal = () => { modal.classList.remove('active'); };
+    document.getElementById('modal-close').onclick = closeModal;
+    document.getElementById('modal-cancel').onclick = closeModal;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      document.getElementById('modal-title').textContent = 'Add Task';
+      document.getElementById('task-form').reset();
+      document.getElementById('task-id').value = '';
+      modal.classList.add('active');
+    });
+
+    document.getElementById('task-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const taskId = document.getElementById('task-id').value;
+      const body = {
+        title: document.getElementById('task-title').value,
+        category: document.getElementById('task-category').value || undefined,
+        dueDate: document.getElementById('task-due').value || undefined,
+        notes: document.getElementById('task-notes').value || undefined,
+      };
+      try {
+        if (taskId) {
+          await apiJson(`/trips/${tripId}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(body) });
+          showToast('Task updated');
+        } else {
+          await apiJson(`/trips/${tripId}/tasks`, { method: 'POST', body: JSON.stringify(body) });
+          showToast('Task added');
+        }
+        closeModal();
+        load();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    async function toggleTask(taskId, isCompleted) {
+      try {
+        await apiJson(`/trips/${tripId}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ isCompleted: !isCompleted }) });
+        load();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteTask(taskId) {
+      if (!confirmAction('Delete this task?')) return;
+      try {
+        await apiJson(`/trips/${tripId}/tasks/${taskId}`, { method: 'DELETE' });
+        showToast('Task deleted');
+        load();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function editTask(task) {
+      document.getElementById('modal-title').textContent = 'Edit Task';
+      document.getElementById('task-id').value = task.id;
+      document.getElementById('task-title').value = task.title;
+      document.getElementById('task-category').value = task.category || '';
+      document.getElementById('task-due').value = task.dueDate ? task.dueDate.substring(0, 10) : '';
+      document.getElementById('task-notes').value = task.notes || '';
+      modal.classList.add('active');
+    }
+
+    function renderTaskItem(task) {
+      return `
+        <div class="task-item">
+          <input type="checkbox" class="task-checkbox" data-id="${task.id}" ${task.isCompleted ? 'checked' : ''}>
+          <div style="flex:1">
+            <div class="${task.isCompleted ? 'task-title-done' : ''}">${escapeHtml(task.title)}</div>
+            <div class="task-meta">
+              ${task.category ? `<span class="badge badge-gray">${escapeHtml(task.category)}</span> ` : ''}
+              ${task.dueDate ? `Due ${formatDate(task.dueDate)}` : ''}
+              ${task.isOverdue ? ' <span class="badge badge-danger">Overdue</span>' : ''}
+            </div>
+          </div>
+          <div class="task-actions">
+            <button class="btn btn-outline btn-sm edit-btn" data-id="${task.id}">✏</button>
+            <button class="btn btn-danger btn-sm del-btn" data-id="${task.id}">🗑</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Store task data for edit
+    let tasksMap = {};
+
+    async function load() {
+      try {
+        const data = await apiJson(`/trips/${tripId}/tasks`);
+        const content = document.getElementById('content');
+        tasksMap = {};
+
+        const allTasks = [...(data.overdue || []), ...(data.pending || []), ...(data.done || [])];
+        allTasks.forEach(t => tasksMap[t.id] = t);
+
+        if (!allTasks.length) {
+          content.innerHTML = emptyState('📋', 'No tasks yet. Add your first task!');
+          return;
+        }
+
+        let html = '';
+        if (data.overdue?.length) {
+          html += `<h2 class="section-title" style="color:var(--danger)">⚠ Overdue (${data.overdue.length})</h2><div class="card">${data.overdue.map(renderTaskItem).join('')}</div>`;
+        }
+        if (data.pending?.length) {
+          html += `<h2 class="section-title">Pending (${data.pending.length})</h2><div class="card">${data.pending.map(renderTaskItem).join('')}</div>`;
+        }
+        if (data.done?.length) {
+          html += `<h2 class="section-title">Done (${data.done.length})</h2><div class="card">${data.done.map(renderTaskItem).join('')}</div>`;
+        }
+
+        content.innerHTML = html;
+
+        content.querySelectorAll('.task-checkbox').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const t = tasksMap[cb.dataset.id];
+            if (t) toggleTask(t.id, t.isCompleted);
+          });
+        });
+        content.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const t = tasksMap[btn.dataset.id];
+            if (t) editTask(t);
+          });
+        });
+        content.querySelectorAll('.del-btn').forEach(btn => {
+          btn.addEventListener('click', () => deleteTask(btn.dataset.id));
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

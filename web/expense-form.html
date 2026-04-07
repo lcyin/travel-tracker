@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <h1 class="page-title" id="page-title">Add Expense</h1>
+    <div class="card form-card" style="max-width:600px">
+      <div id="error"></div>
+
+      <!-- Receipt scan shortcut -->
+      <div class="card" style="background:var(--primary-light);margin-bottom:1rem" id="scan-section">
+        <strong>📸 Quick: Scan a receipt</strong>
+        <p style="font-size:.875rem;color:var(--gray-600);margin:.25rem 0">Upload a receipt image and we'll auto-fill the fields.</p>
+        <input type="file" id="scan-file" accept="image/jpeg,image/png,image/webp" style="margin-top:.5rem">
+        <button class="btn btn-primary btn-sm" id="scan-btn" style="margin-top:.5rem" disabled>Scan & Create</button>
+      </div>
+
+      <form id="expense-form">
+        <input type="hidden" id="expense-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="amount">Amount *</label>
+            <input class="form-input" type="number" id="amount" step="0.01" min="0.01" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="currency">Currency *</label>
+            <input class="form-input" id="currency" required maxlength="3" placeholder="USD" style="text-transform:uppercase">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="category">Category *</label>
+            <select class="form-select" id="category" required>
+              <option value="food">Food</option>
+              <option value="transport">Transport</option>
+              <option value="accommodation">Accommodation</option>
+              <option value="shopping">Shopping</option>
+              <option value="tickets_activities">Activities</option>
+              <option value="cash">Cash</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="paymentMethod">Payment</label>
+            <select class="form-select" id="paymentMethod">
+              <option value="credit_card">Credit Card</option>
+              <option value="debit_card">Debit Card</option>
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="merchantName">Merchant</label>
+          <input class="form-input" id="merchantName">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="occurredAt">Date *</label>
+          <input class="form-input" type="datetime-local" id="occurredAt" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="notes">Notes</label>
+          <textarea class="form-textarea" id="notes"></textarea>
+        </div>
+        <div id="duplicate-warning" class="alert alert-warning" style="display:none">
+          ⚠ A similar expense already exists. Save anyway?
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:1rem">
+          <button class="btn btn-primary" type="submit" id="submit-btn">Save Expense</button>
+          <a id="cancel-link" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson, api } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, showAlert, showToast } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    const id = getParam('id');
+    const isEdit = !!id;
+
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    document.getElementById('cancel-link').href = `/expenses.html?tripId=${tripId}`;
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Expenses', href: `/expenses.html?tripId=${tripId}` },
+      { label: isEdit ? 'Edit' : 'New' },
+    ]);
+
+    if (isEdit) {
+      document.getElementById('page-title').textContent = 'Edit Expense';
+      document.getElementById('submit-btn').textContent = 'Update Expense';
+      document.getElementById('scan-section').style.display = 'none';
+      loadExpense();
+    } else {
+      // Default date to now
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById('occurredAt').value = now.toISOString().slice(0, 16);
+    }
+
+    async function loadExpense() {
+      try {
+        const e = await apiJson(`/trips/${tripId}/expenses/${id}`);
+        document.getElementById('expense-id').value = e.id;
+        document.getElementById('amount').value = e.amount;
+        document.getElementById('currency').value = e.currency;
+        document.getElementById('category').value = e.category;
+        document.getElementById('paymentMethod').value = e.paymentMethod || 'credit_card';
+        document.getElementById('merchantName').value = e.merchantName || '';
+        document.getElementById('notes').value = e.notes || '';
+        if (e.occurredAt) {
+          const d = new Date(e.occurredAt);
+          d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+          document.getElementById('occurredAt').value = d.toISOString().slice(0, 16);
+        }
+      } catch (err) { showAlert(document.getElementById('error'), err.message); }
+    }
+
+    // Receipt scan
+    const scanFile = document.getElementById('scan-file');
+    const scanBtn = document.getElementById('scan-btn');
+    scanFile.addEventListener('change', () => { scanBtn.disabled = !scanFile.files.length; });
+
+    scanBtn.addEventListener('click', async () => {
+      if (!scanFile.files.length) return;
+      scanBtn.disabled = true;
+      scanBtn.textContent = 'Scanning...';
+      const formData = new FormData();
+      formData.append('file', scanFile.files[0]);
+      try {
+        const res = await api(`/trips/${tripId}/expenses/create-from-receipt`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Scan failed');
+        }
+        const expense = await res.json();
+        showToast('Expense created from receipt!');
+        window.location.href = `/expense-detail.html?tripId=${tripId}&id=${expense.id}`;
+      } catch (err) {
+        showAlert(document.getElementById('error'), err.message);
+        scanBtn.disabled = false;
+        scanBtn.textContent = 'Scan & Create';
+      }
+    });
+
+    // Form submit
+    let skipDuplicateCheck = false;
+
+    document.getElementById('expense-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+
+      const body = {
+        amount: parseFloat(document.getElementById('amount').value),
+        currency: document.getElementById('currency').value.toUpperCase(),
+        category: document.getElementById('category').value,
+        paymentMethod: document.getElementById('paymentMethod').value,
+        merchantName: document.getElementById('merchantName').value || undefined,
+        occurredAt: new Date(document.getElementById('occurredAt').value).toISOString(),
+        notes: document.getElementById('notes').value || undefined,
+      };
+
+      try {
+        // Duplicate check for new expenses
+        if (!isEdit && !skipDuplicateCheck) {
+          try {
+            const dup = await apiJson(`/trips/${tripId}/expenses/check-duplicate`, {
+              method: 'POST',
+              body: JSON.stringify(body),
+            });
+            if (dup.isDuplicate) {
+              document.getElementById('duplicate-warning').style.display = '';
+              skipDuplicateCheck = true;
+              btn.disabled = false;
+              return;
+            }
+          } catch { /* ignore duplicate check errors */ }
+        }
+
+        if (isEdit) {
+          await apiJson(`/trips/${tripId}/expenses/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('Expense updated');
+          window.location.href = `/expense-detail.html?tripId=${tripId}&id=${id}`;
+        } else {
+          const expense = await apiJson(`/trips/${tripId}/expenses`, { method: 'POST', body: JSON.stringify(body) });
+          showToast('Expense created');
+          window.location.href = `/expense-detail.html?tripId=${tripId}&id=${expense.id}`;
+        }
+      } catch (err) {
+        showAlert(document.getElementById('error'), err.message);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

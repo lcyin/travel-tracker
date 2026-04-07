@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Itinerary – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div id="breadcrumb"></div>
+    <div class="page-header">
+      <h1 class="page-title">Itinerary</h1>
+    </div>
+    <div id="content"><div class="loading">Loading...</div></div>
+  </div>
+
+  <!-- Item Modal -->
+  <div class="modal-overlay" id="item-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Add Item</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="item-form">
+        <input type="hidden" id="item-id">
+        <input type="hidden" id="item-day-id">
+        <div class="form-group">
+          <label class="form-label" for="item-title">Title *</label>
+          <input class="form-input" id="item-title" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-type">Type</label>
+          <select class="form-select" id="item-type">
+            <option value="sightseeing">Sightseeing</option>
+            <option value="activity">Activity</option>
+            <option value="meal">Meal</option>
+            <option value="transport">Transport</option>
+            <option value="accommodation">Accommodation</option>
+            <option value="shopping">Shopping</option>
+            <option value="notes">Notes</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="item-start">Start Time</label>
+            <input class="form-input" type="time" id="item-start">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="item-end">End Time</label>
+            <input class="form-input" type="time" id="item-end">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="item-notes">Notes</label>
+          <textarea class="form-textarea" id="item-notes"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" type="button" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDate, categoryLabel, showToast, emptyState, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('trips');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    renderBreadcrumb(document.getElementById('breadcrumb'), [
+      { label: 'Trips', href: '/trips.html' },
+      { label: 'Dashboard', href: `/trip-dashboard.html?id=${tripId}` },
+      { label: 'Itinerary' },
+    ]);
+
+    // Modal
+    const modal = document.getElementById('item-modal');
+    const closeModal = () => modal.classList.remove('active');
+    document.getElementById('modal-close').onclick = closeModal;
+    document.getElementById('modal-cancel').onclick = closeModal;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    function openAddModal(dayId) {
+      document.getElementById('modal-title').textContent = 'Add Item';
+      document.getElementById('item-form').reset();
+      document.getElementById('item-id').value = '';
+      document.getElementById('item-day-id').value = dayId;
+      modal.classList.add('active');
+    }
+
+    function openEditModal(item) {
+      document.getElementById('modal-title').textContent = 'Edit Item';
+      document.getElementById('item-id').value = item.id;
+      document.getElementById('item-day-id').value = '';
+      document.getElementById('item-title').value = item.title;
+      document.getElementById('item-type').value = item.type || 'sightseeing';
+      document.getElementById('item-start').value = item.startTime || '';
+      document.getElementById('item-end').value = item.endTime || '';
+      document.getElementById('item-notes').value = item.notes || '';
+      modal.classList.add('active');
+    }
+
+    document.getElementById('item-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const itemId = document.getElementById('item-id').value;
+      const dayId = document.getElementById('item-day-id').value;
+
+      const body = {
+        title: document.getElementById('item-title').value,
+        type: document.getElementById('item-type').value,
+        startTime: document.getElementById('item-start').value || undefined,
+        endTime: document.getElementById('item-end').value || undefined,
+        notes: document.getElementById('item-notes').value || undefined,
+      };
+
+      try {
+        if (itemId) {
+          await apiJson(`/itinerary-items/${itemId}`, { method: 'PATCH', body: JSON.stringify(body) });
+          showToast('Item updated');
+        } else {
+          await apiJson(`/itinerary-days/${dayId}/items`, { method: 'POST', body: JSON.stringify(body) });
+          showToast('Item added');
+        }
+        closeModal();
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+
+    async function deleteItem(itemId) {
+      if (!confirmAction('Delete this item?')) return;
+      try {
+        await apiJson(`/itinerary-items/${itemId}`, { method: 'DELETE' });
+        showToast('Item deleted');
+        load();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function typeBadge(type) {
+      const colors = {
+        sightseeing: 'badge-primary', activity: 'badge-warning', meal: 'badge-success',
+        transport: 'badge-gray', accommodation: 'badge-primary', shopping: 'badge-warning', notes: 'badge-gray',
+      };
+      return `<span class="badge ${colors[type] || 'badge-gray'}">${categoryLabel(type)}</span>`;
+    }
+
+    function statusIcon(status) {
+      const map = { planned: '⬜', active: '🔵', completed: '✅', cancelled: '❌' };
+      return map[status] || '⬜';
+    }
+
+    let itemsMap = {};
+
+    async function load() {
+      try {
+        const days = await apiJson(`/trips/${tripId}/itinerary`);
+        const content = document.getElementById('content');
+        itemsMap = {};
+
+        if (!days.length) {
+          content.innerHTML = emptyState('📅', 'No itinerary days. Set trip dates to auto-generate days.');
+          return;
+        }
+
+        let html = '';
+        days.forEach((day, idx) => {
+          const dayNum = idx + 1;
+          html += `
+            <div class="card" style="margin-bottom:1rem">
+              <div class="card-header">
+                <span class="card-title">Day ${dayNum} — ${formatDate(day.date)}</span>
+                <button class="btn btn-primary btn-sm add-day-btn" data-day-id="${day.id}">+ Add</button>
+              </div>
+          `;
+
+          if (!day.items?.length) {
+            html += `<div style="color:var(--gray-400);font-size:.875rem;padding:.5rem 0">No activities planned.</div>`;
+          } else {
+            day.items.forEach(item => {
+              itemsMap[item.id] = item;
+              html += `
+                <div class="task-item">
+                  <span>${statusIcon(item.status)}</span>
+                  <div style="flex:1">
+                    <div>
+                      ${item.startTime ? `<strong>${item.startTime}</strong>` : ''}
+                      ${item.endTime ? `– ${item.endTime}` : ''}
+                      ${escapeHtml(item.title)}
+                    </div>
+                    <div class="task-meta">
+                      ${typeBadge(item.type)}
+                      ${item.notes ? ` · ${escapeHtml(item.notes).substring(0, 60)}` : ''}
+                    </div>
+                  </div>
+                  <div class="task-actions">
+                    <button class="btn btn-outline btn-sm edit-item-btn" data-id="${item.id}">✏</button>
+                    <button class="btn btn-danger btn-sm del-item-btn" data-id="${item.id}">🗑</button>
+                  </div>
+                </div>
+              `;
+            });
+          }
+
+          html += '</div>';
+        });
+
+        content.innerHTML = html;
+
+        // Bind events
+        content.querySelectorAll('.add-day-btn').forEach(btn => {
+          btn.addEventListener('click', () => openAddModal(btn.dataset.dayId));
+        });
+        content.querySelectorAll('.edit-item-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const item = itemsMap[btn.dataset.id];
+            if (item) openEditModal(item);
+          });
+        });
+        content.querySelectorAll('.del-item-btn').forEach(btn => {
+          btn.addEventListener('click', () => deleteItem(btn.dataset.id));
+        });
+      } catch (err) {
+        document.getElementById('content').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
