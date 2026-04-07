@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 import { TripClimate, TripStatus, TripType } from '../enums/trip.enums';
 
 export class CreateTripDto {
@@ -60,4 +66,13 @@ export class CreateTripDto {
   @IsOptional()
   @IsEnum(TripClimate)
   climate?: TripClimate;
+
+  @ApiPropertyOptional({
+    description: 'Base currency for expense tracking (ISO 4217)',
+    example: 'USD',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  baseCurrency?: string;
 }

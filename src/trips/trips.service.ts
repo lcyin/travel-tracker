@@ -190,6 +190,7 @@ export class TripsService {
       tripType: trip.tripType,
       status: trip.status,
       climate: trip.climate,
+      baseCurrency: trip.baseCurrency,
       userId: trip.userId,
       createdAt: trip.createdAt,
       updatedAt: trip.updatedAt,

@@ -54,6 +54,12 @@ export class TripResponseDto {
   })
   climate?: TripClimate;
 
+  @ApiPropertyOptional({
+    description: 'Base currency for expense tracking (ISO 4217)',
+    example: 'USD',
+  })
+  baseCurrency?: string;
+
   @ApiProperty({
     description: 'Owner user ID',
     format: 'uuid',
