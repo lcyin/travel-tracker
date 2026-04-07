@@ -620,6 +620,1034 @@
         ]
       }
     },
+    "/trips/{tripId}/expenses": {
+      "get": {
+        "operationId": "ExpensesController_findAll",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by expense category",
+            "schema": {
+              "example": "food",
+              "type": "string",
+              "enum": [
+                "food",
+                "transport",
+                "accommodation",
+                "shopping",
+                "tickets_activities",
+                "cash",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "paymentMethod",
+            "required": false,
+            "in": "query",
+            "description": "Filter by payment method",
+            "schema": {
+              "example": "cash",
+              "type": "string",
+              "enum": [
+                "credit_card",
+                "debit_card",
+                "cash",
+                "bank_transfer",
+                "other"
+              ]
+            }
+          },
+          {
+            "name": "dateFrom",
+            "required": false,
+            "in": "query",
+            "description": "Filter expenses from this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "required": false,
+            "in": "query",
+            "description": "Filter expenses until this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "description": "Filter by currency code",
+            "schema": {
+              "example": "JPY",
+              "type": "string"
+            }
+          },
+          {
+            "name": "extractionStatus",
+            "required": false,
+            "in": "query",
+            "description": "Filter by OCR extraction status",
+            "schema": {
+              "example": "needs_review",
+              "type": "string",
+              "enum": [
+                "none",
+                "pending",
+                "success",
+                "failed",
+                "needs_review"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get all expenses for a trip",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "post": {
+        "operationId": "ExpensesController_create",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a new expense",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/summary": {
+      "get": {
+        "operationId": "ExpensesController_getSummary",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "required": false,
+            "in": "query",
+            "description": "Filter summary from this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "required": false,
+            "in": "query",
+            "description": "Filter summary until this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category",
+            "schema": {
+              "example": "food",
+              "type": "string",
+              "enum": [
+                "food",
+                "transport",
+                "accommodation",
+                "shopping",
+                "tickets_activities",
+                "cash",
+                "other"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseSummaryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get expense summary and analytics",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/export/csv": {
+      "get": {
+        "operationId": "ExpensesController_exportCsv",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "required": false,
+            "in": "query",
+            "description": "Filter summary from this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateTo",
+            "required": false,
+            "in": "query",
+            "description": "Filter summary until this date (ISO 8601)",
+            "schema": {
+              "example": "2026-04-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category",
+            "schema": {
+              "example": "food",
+              "type": "string",
+              "enum": [
+                "food",
+                "transport",
+                "accommodation",
+                "shopping",
+                "tickets_activities",
+                "cash",
+                "other"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV file",
+            "content": {
+              "text/csv": {}
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Export expenses to CSV",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/check-duplicate": {
+      "post": {
+        "operationId": "ExpensesController_checkDuplicate",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Check if expense is a duplicate",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/dashboard": {
+      "get": {
+        "operationId": "ExpensesController_getDashboard",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseDashboardResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get combined expense summary and budget for the trip dashboard",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/{id}": {
+      "get": {
+        "operationId": "ExpensesController_findOne",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Expense ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get expense by ID",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "put": {
+        "operationId": "ExpensesController_update",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Expense ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update an expense",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_remove",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Expense ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete an expense",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/{expenseId}/receipts": {
+      "post": {
+        "operationId": "ExpensesController_uploadReceipt",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expenseId",
+            "required": true,
+            "in": "path",
+            "description": "Expense ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Expense not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Upload a receipt image",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/receipts/{receiptId}": {
+      "delete": {
+        "operationId": "ExpensesController_removeReceipt",
+        "parameters": [
+          {
+            "name": "receiptId",
+            "required": true,
+            "in": "path",
+            "description": "Receipt ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Receipt not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a receipt",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/budget/summary": {
+      "get": {
+        "operationId": "ExpensesController_getBudget",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Budget not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get budget and spending summary",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/budget": {
+      "post": {
+        "operationId": "ExpensesController_createBudget",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a budget for a trip",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "put": {
+        "operationId": "ExpensesController_updateBudget",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBudgetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Budget not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update budget",
+        "tags": [
+          "Expenses"
+        ]
+      },
+      "delete": {
+        "operationId": "ExpensesController_deleteBudget",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Budget not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete budget",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/extract-receipt": {
+      "post": {
+        "operationId": "ExpensesController_extractReceipt",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "receipt"
+                ],
+                "properties": {
+                  "receipt": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Receipt image file"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Extract receipt data using OCR",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
+    "/trips/{tripId}/expenses/create-from-receipt": {
+      "post": {
+        "operationId": "ExpensesController_createFromReceipt",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "receipt"
+                ],
+                "properties": {
+                  "receipt": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Receipt image (JPEG, PNG, or WebP)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No file uploaded or OCR could not extract amount/currency"
+          },
+          "401": {
+            "description": ""
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Scan a receipt image via OCR and create an expense",
+        "tags": [
+          "Expenses"
+        ]
+      }
+    },
     "/trips/{tripId}/packing": {
       "get": {
         "operationId": "PackingController_findAll",
@@ -979,6 +2007,243 @@
         "summary": "Accept selected packing suggestions and add them to the trip packing list",
         "tags": [
           "Packing"
+        ]
+      }
+    },
+    "/trips/{tripId}/itinerary": {
+      "get": {
+        "operationId": "ItineraryController_getItinerary",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "in": "path",
+            "description": "Trip ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItineraryDayResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Trip not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get full itinerary for a trip, auto-generating days from the trip date range",
+        "tags": [
+          "Itinerary"
+        ]
+      }
+    },
+    "/itinerary-days/{dayId}/items": {
+      "get": {
+        "operationId": "ItineraryController_getDayItems",
+        "parameters": [
+          {
+            "name": "dayId",
+            "required": true,
+            "in": "path",
+            "description": "Itinerary day ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItineraryItemResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Itinerary day not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get all items for a specific itinerary day",
+        "tags": [
+          "Itinerary"
+        ]
+      },
+      "post": {
+        "operationId": "ItineraryController_createItem",
+        "parameters": [
+          {
+            "name": "dayId",
+            "required": true,
+            "in": "path",
+            "description": "Itinerary day ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItineraryItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryItemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Itinerary day not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Add an item to an itinerary day",
+        "tags": [
+          "Itinerary"
+        ]
+      }
+    },
+    "/itinerary-items/{id}": {
+      "patch": {
+        "operationId": "ItineraryController_updateItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Itinerary item ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItineraryItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItineraryItemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Itinerary item not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Update an itinerary item",
+        "tags": [
+          "Itinerary"
+        ]
+      },
+      "delete": {
+        "operationId": "ItineraryController_deleteItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Itinerary item ID (UUID)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Itinerary item not found"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Soft-delete an itinerary item",
+        "tags": [
+          "Itinerary"
         ]
       }
     },
@@ -1901,6 +3166,674 @@
           }
         }
       },
+      "ReceiptResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Receipt ID",
+            "format": "uuid",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "expenseId": {
+            "type": "string",
+            "description": "Expense ID",
+            "format": "uuid",
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "Path to uploaded receipt file",
+            "example": "/uploads/receipts/a1b2c3d4-e5f6-7890-abcd.jpg"
+          },
+          "thumbnailUrl": {
+            "type": "string",
+            "description": "Path to thumbnail image",
+            "example": "/uploads/receipts/a1b2c3d4-e5f6-7890-abcd-thumb.jpg"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of uploaded file",
+            "example": "image/jpeg"
+          },
+          "fileSize": {
+            "type": "number",
+            "description": "File size in bytes",
+            "example": 245000
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Upload timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          },
+          "rawOcrJson": {
+            "type": "object",
+            "description": "Raw OCR extraction result as JSON"
+          },
+          "confidenceScore": {
+            "type": "number",
+            "description": "OCR confidence score (0-1)",
+            "example": 0.95
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "expenseId",
+          "fileUrl",
+          "mimeType",
+          "uploadedAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ExpenseResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Expense ID",
+            "format": "uuid",
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          },
+          "tripId": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "c3d4e5f6-a7b8-9012-cdef-123456789012"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "When the expense occurred",
+            "example": "2026-04-02T14:30:00.000Z"
+          },
+          "merchantName": {
+            "type": "string",
+            "description": "Merchant/vendor name",
+            "example": "Tokyo Tower"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in original currency",
+            "example": 3500
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "JPY"
+          },
+          "baseAmount": {
+            "type": "number",
+            "description": "Converted to base currency",
+            "example": 25.5
+          },
+          "baseCurrency": {
+            "type": "string",
+            "description": "Base currency code",
+            "example": "USD"
+          },
+          "exchangeRate": {
+            "type": "number",
+            "description": "Exchange rate used for conversion",
+            "example": 137.255
+          },
+          "exchangeRateSource": {
+            "type": "string",
+            "description": "Source of the exchange rate (e.g. \"ecb\")",
+            "example": "ecb"
+          },
+          "exchangeRateAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "When the exchange rate was fetched",
+            "example": "2026-04-02T10:00:00.000Z"
+          },
+          "category": {
+            "type": "string",
+            "description": "Expense category",
+            "enum": [
+              "food",
+              "transport",
+              "accommodation",
+              "shopping",
+              "tickets_activities",
+              "cash",
+              "other"
+            ],
+            "example": "food"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Payment method used",
+            "enum": [
+              "credit_card",
+              "debit_card",
+              "cash",
+              "bank_transfer",
+              "other"
+            ],
+            "example": "cash"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes",
+            "example": "Lunch with team"
+          },
+          "source": {
+            "type": "string",
+            "description": "Expense source (manual entry, OCR, quick add, draft)",
+            "enum": [
+              "manual",
+              "ocr",
+              "quick_add",
+              "draft"
+            ],
+            "example": "manual"
+          },
+          "extractionStatus": {
+            "type": "string",
+            "description": "OCR extraction status",
+            "enum": [
+              "none",
+              "pending",
+              "success",
+              "failed",
+              "needs_review"
+            ],
+            "example": "none"
+          },
+          "receipt": {
+            "description": "Associated receipt file (if any)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReceiptResponseDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "occurredAt",
+          "amount",
+          "currency",
+          "category",
+          "paymentMethod",
+          "source",
+          "extractionStatus",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ExpenseCategoryBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Category name",
+            "example": "food"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Total spent in this category",
+            "example": 1200
+          },
+          "percentage": {
+            "type": "number",
+            "description": "Percentage of total spend",
+            "example": 34
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of transactions in category",
+            "example": 8
+          }
+        },
+        "required": [
+          "category",
+          "amount",
+          "percentage",
+          "count"
+        ]
+      },
+      "ExpenseMerchantBreakdownDto": {
+        "type": "object",
+        "properties": {
+          "merchantName": {
+            "type": "string",
+            "description": "Merchant name",
+            "example": "Starbucks"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Total spent at merchant",
+            "example": 45.5
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of transactions at merchant",
+            "example": 3
+          }
+        },
+        "required": [
+          "merchantName",
+          "amount",
+          "count"
+        ]
+      },
+      "DailyTrendDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date in YYYY-MM-DD format",
+            "example": "2026-04-02"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount spent on this date",
+            "example": 250.75
+          }
+        },
+        "required": [
+          "date",
+          "amount"
+        ]
+      },
+      "ExpenseSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "totalSpent": {
+            "type": "number",
+            "description": "Total amount spent across all expenses",
+            "example": 3500
+          },
+          "baseCurrency": {
+            "type": "string",
+            "description": "Base currency used for totals",
+            "example": "USD"
+          },
+          "transactionCount": {
+            "type": "number",
+            "description": "Total number of transactions",
+            "example": 15
+          },
+          "averagePerDay": {
+            "type": "number",
+            "description": "Average spending per day",
+            "example": 350
+          },
+          "byCategory": {
+            "description": "Breakdown of spending by category",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseCategoryBreakdownDto"
+            }
+          },
+          "byMerchant": {
+            "description": "Top merchants by spend",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpenseMerchantBreakdownDto"
+            }
+          },
+          "dailyTrend": {
+            "description": "Daily spending trend",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyTrendDto"
+            }
+          },
+          "needsReviewCount": {
+            "type": "number",
+            "description": "Number of OCR-scanned expenses needing manual review",
+            "example": 2
+          }
+        },
+        "required": [
+          "totalSpent",
+          "baseCurrency",
+          "transactionCount",
+          "averagePerDay",
+          "byCategory",
+          "byMerchant",
+          "dailyTrend",
+          "needsReviewCount"
+        ]
+      },
+      "CreateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": "string",
+            "description": "Date/time when the expense occurred",
+            "example": "2026-04-02T14:30:00.000Z"
+          },
+          "merchantName": {
+            "type": "string",
+            "description": "Merchant or vendor name",
+            "example": "Tokyo Tower"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the original currency",
+            "example": 3500
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "JPY"
+          },
+          "category": {
+            "type": "string",
+            "description": "Expense category",
+            "enum": [
+              "food",
+              "transport",
+              "accommodation",
+              "shopping",
+              "tickets_activities",
+              "cash",
+              "other"
+            ],
+            "example": "food"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Payment method",
+            "enum": [
+              "credit_card",
+              "debit_card",
+              "cash",
+              "bank_transfer",
+              "other"
+            ],
+            "example": "cash"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes",
+            "example": "Lunch with team"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source of the expense entry",
+            "enum": [
+              "manual",
+              "ocr",
+              "quick_add",
+              "draft"
+            ],
+            "example": "manual"
+          }
+        },
+        "required": [
+          "occurredAt",
+          "amount",
+          "currency",
+          "category",
+          "paymentMethod"
+        ]
+      },
+      "BudgetResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Budget ID",
+            "format": "uuid",
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          },
+          "tripId": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "c3d4e5f6-a7b8-9012-cdef-123456789012"
+          },
+          "baseCurrency": {
+            "type": "string",
+            "description": "Base currency for the budget",
+            "example": "USD"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total budget amount",
+            "example": 5000
+          },
+          "categoryLimits": {
+            "type": "object",
+            "description": "Per-category spending limits as JSON",
+            "example": {
+              "food": 1000,
+              "transport": 500,
+              "accommodation": 2000
+            }
+          },
+          "warningThreshold": {
+            "type": "number",
+            "description": "Warning threshold as percentage of budget (0-100)",
+            "example": 80
+          },
+          "spent": {
+            "type": "number",
+            "description": "Total amount spent so far (computed)",
+            "example": 3500
+          },
+          "remaining": {
+            "type": "number",
+            "description": "Remaining budget (totalAmount - spent)",
+            "example": 1500
+          },
+          "percentageUsed": {
+            "type": "number",
+            "description": "Percentage of budget used (0-100)",
+            "example": 70
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-04-03T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "baseCurrency",
+          "totalAmount",
+          "warningThreshold",
+          "spent",
+          "remaining",
+          "percentageUsed",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ExpenseDashboardResponseDto": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "description": "Aggregated expense analytics for the trip",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ExpenseSummaryResponseDto"
+              }
+            ]
+          },
+          "budget": {
+            "description": "Budget and spending limits, null if no budget set",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BudgetResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "summary"
+        ]
+      },
+      "UpdateExpenseDto": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": "string",
+            "description": "Date/time when the expense occurred",
+            "example": "2026-04-02T14:30:00.000Z"
+          },
+          "merchantName": {
+            "type": "string",
+            "description": "Merchant or vendor name",
+            "example": "Tokyo Tower"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in the original currency",
+            "example": 3500
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "example": "JPY"
+          },
+          "category": {
+            "type": "string",
+            "description": "Expense category",
+            "enum": [
+              "food",
+              "transport",
+              "accommodation",
+              "shopping",
+              "tickets_activities",
+              "cash",
+              "other"
+            ],
+            "example": "food"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Payment method",
+            "enum": [
+              "credit_card",
+              "debit_card",
+              "cash",
+              "bank_transfer",
+              "other"
+            ],
+            "example": "cash"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes",
+            "example": "Lunch with team"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source of the expense entry",
+            "enum": [
+              "manual",
+              "ocr",
+              "quick_add",
+              "draft"
+            ],
+            "example": "manual"
+          }
+        }
+      },
+      "CreateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "description": "Currency for the budget",
+            "example": "USD"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total budget amount",
+            "example": 5000
+          },
+          "categoryLimits": {
+            "type": "object",
+            "description": "Optional per-category spending limits",
+            "example": {
+              "food": 1000,
+              "transport": 500,
+              "accommodation": 2000
+            }
+          },
+          "warningThreshold": {
+            "type": "number",
+            "description": "Warning threshold as percentage (default 80)",
+            "example": 80
+          }
+        },
+        "required": [
+          "baseCurrency",
+          "totalAmount"
+        ]
+      },
+      "UpdateBudgetDto": {
+        "type": "object",
+        "properties": {
+          "baseCurrency": {
+            "type": "string",
+            "description": "Currency for the budget",
+            "example": "USD"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total budget amount",
+            "example": 5000
+          },
+          "categoryLimits": {
+            "type": "object",
+            "description": "Optional per-category spending limits",
+            "example": {
+              "food": 1000,
+              "transport": 500,
+              "accommodation": 2000
+            }
+          },
+          "warningThreshold": {
+            "type": "number",
+            "description": "Warning threshold as percentage (default 80)",
+            "example": 80
+          }
+        }
+      },
       "PackingItemResponseDto": {
         "type": "object",
         "properties": {
@@ -2089,6 +4022,250 @@
         "required": [
           "keys"
         ]
+      },
+      "ItineraryItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Item ID",
+            "format": "uuid",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "dayId": {
+            "type": "string",
+            "description": "Itinerary day ID",
+            "format": "uuid",
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          },
+          "type": {
+            "type": "string",
+            "description": "Item type",
+            "enum": [
+              "sightseeing",
+              "meal",
+              "transfer",
+              "other"
+            ],
+            "example": "sightseeing"
+          },
+          "title": {
+            "type": "string",
+            "description": "Item title",
+            "example": "Visit Tokyo Tower"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes",
+            "example": "Buy tickets in advance"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Start time in HH:mm format",
+            "example": "09:30"
+          },
+          "endTime": {
+            "type": "string",
+            "description": "End time in HH:mm format",
+            "example": "11:00"
+          },
+          "orderIndex": {
+            "type": "number",
+            "description": "Manual ordering index (used as tiebreaker after start_time)",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Item status",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "example": "planned"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-25T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last updated timestamp",
+            "example": "2026-03-25T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "dayId",
+          "type",
+          "title",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ItineraryDayResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Day ID",
+            "format": "uuid",
+            "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+          },
+          "tripId": {
+            "type": "string",
+            "description": "Trip ID",
+            "format": "uuid",
+            "example": "c3d4e5f6-a7b8-9012-cdef-123456789012"
+          },
+          "date": {
+            "type": "string",
+            "description": "Date of the day in YYYY-MM-DD format",
+            "example": "2026-06-01"
+          },
+          "items": {
+            "description": "Items for this day, ordered by start_time ASC then order_index ASC",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItineraryItemResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-03-25T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last updated timestamp",
+            "example": "2026-03-25T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "date",
+          "items",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateItineraryItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Item type",
+            "enum": [
+              "sightseeing",
+              "meal",
+              "transfer",
+              "other"
+            ],
+            "example": "sightseeing"
+          },
+          "title": {
+            "type": "string",
+            "description": "Item title",
+            "example": "Visit Tokyo Tower"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes",
+            "example": "Buy tickets in advance"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Start time in HH:mm format",
+            "example": "09:30"
+          },
+          "endTime": {
+            "type": "string",
+            "description": "End time in HH:mm format",
+            "example": "11:00"
+          },
+          "orderIndex": {
+            "type": "number",
+            "description": "Manual ordering index (tiebreaker after start_time)",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Item status",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "default": "planned",
+            "example": "planned"
+          }
+        },
+        "required": [
+          "type",
+          "title"
+        ]
+      },
+      "UpdateItineraryItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Item type",
+            "enum": [
+              "sightseeing",
+              "meal",
+              "transfer",
+              "other"
+            ],
+            "example": "sightseeing"
+          },
+          "title": {
+            "type": "string",
+            "description": "Item title",
+            "example": "Visit Tokyo Tower"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes",
+            "example": "Buy tickets in advance"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Start time in HH:mm format",
+            "example": "09:30"
+          },
+          "endTime": {
+            "type": "string",
+            "description": "End time in HH:mm format",
+            "example": "11:00"
+          },
+          "orderIndex": {
+            "type": "number",
+            "description": "Manual ordering index (tiebreaker after start_time)",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Item status",
+            "enum": [
+              "planned",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "default": "planned",
+            "example": "planned"
+          }
+        }
       }
     }
   }
