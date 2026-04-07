@@ -748,11 +748,13 @@ export class ExpensesService {
       tripId: expense.tripId,
       occurredAt: expense.occurredAt,
       merchantName: expense.merchantName,
-      amount: expense.amount,
+      amount: expense.amount != null ? Number(expense.amount) : expense.amount,
       currency: expense.currency,
-      baseAmount: expense.baseAmount,
+      baseAmount:
+        expense.baseAmount != null ? Number(expense.baseAmount) : undefined,
       baseCurrency: expense.baseCurrency,
-      exchangeRate: expense.exchangeRate,
+      exchangeRate:
+        expense.exchangeRate != null ? Number(expense.exchangeRate) : undefined,
       exchangeRateSource: expense.exchangeRateSource,
       exchangeRateAt: expense.exchangeRateAt,
       category: expense.category,
