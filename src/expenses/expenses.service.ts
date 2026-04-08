@@ -334,16 +334,14 @@ export class ExpensesService {
     }
 
     const totalSpent = expenses.reduce(
-      (sum, e) => sum + (e.baseAmount || e.amount),
+      (sum, e) => sum + Number(e.baseAmount || e.amount || 0),
       0,
     );
-    const avgPerDay =
-      expenses.length > 0
-        ? Math.round(
-            totalSpent /
-              new Set(expenses.map((e) => e.occurredAt?.toDateString())).size,
-          )
-        : 0;
+
+    const uniqueDays = new Set(
+      expenses.map((e) => e.occurredAt?.toISOString().split('T')[0] ?? ''),
+    ).size;
+    const avgPerDay = uniqueDays > 0 ? Math.round(totalSpent / uniqueDays) : 0;
 
     // Category breakdown
     const categoryMap = new Map<string, { amount: number; count: number }>();
@@ -353,7 +351,7 @@ export class ExpensesService {
         categoryMap.set(cat, { amount: 0, count: 0 });
       }
       const entry = categoryMap.get(cat)!;
-      entry.amount += e.baseAmount || e.amount;
+      entry.amount += Number(e.baseAmount || e.amount || 0);
       entry.count += 1;
     });
 
@@ -361,7 +359,8 @@ export class ExpensesService {
       ([category, { amount, count }]) => ({
         category,
         amount: Math.round(amount * 100) / 100,
-        percentage: Math.round((amount / totalSpent) * 100),
+        percentage:
+          totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0,
         count,
       }),
     );
@@ -374,7 +373,7 @@ export class ExpensesService {
         merchantMap.set(merchant, { amount: 0, count: 0 });
       }
       const entry = merchantMap.get(merchant)!;
-      entry.amount += e.baseAmount || e.amount;
+      entry.amount += Number(e.baseAmount || e.amount || 0);
       entry.count += 1;
     });
 
@@ -396,7 +395,7 @@ export class ExpensesService {
       }
       dailyMap.set(
         dateStr,
-        dailyMap.get(dateStr)! + (e.baseAmount || e.amount),
+        dailyMap.get(dateStr)! + Number(e.baseAmount || e.amount || 0),
       );
     });
 
@@ -429,16 +428,22 @@ export class ExpensesService {
         if (!b) return null;
         const result = await this.expenseRepository
           .createQueryBuilder('expense')
-          .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+          .select(
+            'SUM(CAST(COALESCE(expense.baseAmount, expense.amount) AS float))',
+            'total',
+          )
           .where('expense.tripId = :tripId', { tripId })
           .andWhere('expense.deletedAt IS NULL')
           .getRawOne<{ total: string }>();
-        const spent = parseFloat(result?.total ?? '0');
+        const spent = parseFloat(result?.total ?? '0') || 0;
+        const totalAmount = Number(b.totalAmount);
         return {
           ...b,
+          totalAmount,
           spent,
-          remaining: b.totalAmount - spent,
-          percentageUsed: Math.round((spent / b.totalAmount) * 100),
+          remaining: totalAmount - spent,
+          percentageUsed:
+            totalAmount > 0 ? Math.round((spent / totalAmount) * 100) : 0,
         } as BudgetResponseDto;
       }),
     ]);
@@ -455,20 +460,26 @@ export class ExpensesService {
       throw new NotFoundException('Budget not found for this trip');
     }
 
-    // Compute spent via SUM of baseAmount
+    // Compute spent via SUM of COALESCE(baseAmount, amount)
     const result = await this.expenseRepository
       .createQueryBuilder('expense')
-      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .select(
+        'SUM(CAST(COALESCE(expense.baseAmount, expense.amount) AS float))',
+        'total',
+      )
       .where('expense.tripId = :tripId', { tripId })
       .andWhere('expense.deletedAt IS NULL')
       .getRawOne();
 
-    const spent = parseFloat(result.total || 0);
-    const remaining = budget.totalAmount - spent;
-    const percentageUsed = Math.round((spent / budget.totalAmount) * 100);
+    const spent = parseFloat(result.total || 0) || 0;
+    const totalAmount = Number(budget.totalAmount);
+    const remaining = totalAmount - spent;
+    const percentageUsed =
+      totalAmount > 0 ? Math.round((spent / totalAmount) * 100) : 0;
 
     return {
       ...budget,
+      totalAmount,
       spent,
       remaining,
       percentageUsed,
@@ -490,17 +501,23 @@ export class ExpensesService {
     const saved = await this.budgetRepository.save(budget);
     const result = await this.expenseRepository
       .createQueryBuilder('expense')
-      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .select(
+        'SUM(CAST(COALESCE(expense.baseAmount, expense.amount) AS float))',
+        'total',
+      )
       .where('expense.tripId = :tripId', { tripId })
       .andWhere('expense.deletedAt IS NULL')
       .getRawOne();
 
-    const spent = parseFloat(result.total || 0);
+    const spent = parseFloat(result.total || 0) || 0;
+    const totalAmount = Number(saved.totalAmount);
     return {
       ...saved,
+      totalAmount,
       spent,
-      remaining: saved.totalAmount - spent,
-      percentageUsed: Math.round((spent / saved.totalAmount) * 100),
+      remaining: totalAmount - spent,
+      percentageUsed:
+        totalAmount > 0 ? Math.round((spent / totalAmount) * 100) : 0,
     };
   }
 
@@ -522,17 +539,23 @@ export class ExpensesService {
 
     const result = await this.expenseRepository
       .createQueryBuilder('expense')
-      .select('SUM(CAST(expense.baseAmount AS float))', 'total')
+      .select(
+        'SUM(CAST(COALESCE(expense.baseAmount, expense.amount) AS float))',
+        'total',
+      )
       .where('expense.tripId = :tripId', { tripId })
       .andWhere('expense.deletedAt IS NULL')
       .getRawOne();
 
-    const spent = parseFloat(result.total || 0);
+    const spent = parseFloat(result.total || 0) || 0;
+    const totalAmount = Number(saved.totalAmount);
     return {
       ...saved,
+      totalAmount,
       spent,
-      remaining: saved.totalAmount - spent,
-      percentageUsed: Math.round((spent / saved.totalAmount) * 100),
+      remaining: totalAmount - spent,
+      percentageUsed:
+        totalAmount > 0 ? Math.round((spent / totalAmount) * 100) : 0,
     };
   }
 
