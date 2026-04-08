@@ -15,7 +15,7 @@ import { TripsModule } from './trips/trips.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'web'),
+      rootPath: join(process.cwd(), 'web'),
     }),
     ConfigModule.forRoot({
       isGlobal: true,
