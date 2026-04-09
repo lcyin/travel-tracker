@@ -95,7 +95,7 @@
 
           <h2 class="section-title">Receipts</h2>
           <div class="card">
-            <div id="receipts">${renderReceipts(e.receipts || [])}</div>
+            <div id="receipts">${renderReceipts(e.receipt || [])}</div>
             <div style="margin-top:1rem">
               <label class="form-label">Upload Receipt</label>
               <input type="file" id="receipt-file" accept="image/jpeg,image/png,image/webp">
@@ -204,22 +204,24 @@
         </div>`;
     }
 
-    function renderReceipts(receipts) {
-      if (!receipts.length) return '<div style="color:var(--gray-400);font-size:.875rem">No receipts attached.</div>';
-      return receipts.map(r => `
+    function renderReceipt(receipt) {
+      // receipt is a single object with details about the uploaded receipt, including OCR data and confidence scores. It may also include a URL to the image for display.
+      if (!receipt) return '<div style="color:var(--gray-400);font-size:.875rem">No receipts attached.</div>';
+      return `
         <div style="padding:.75rem 0;border-bottom:1px solid var(--gray-100)">
           <div style="display:flex;align-items:center;gap:.75rem">
             <div style="flex:1">
-              <div style="font-size:.875rem">${escapeHtml(r.mimeType)} ${r.fileSize ? `(${Math.round(r.fileSize / 1024)}KB)` : ''}</div>
-              <div class="task-meta">${formatDateTime(r.uploadedAt)}</div>
-              ${r.confidenceScore != null ? `<div class="task-meta">Confidence: ${(r.confidenceScore * 100).toFixed(0)}%</div>` : ''}
+              <div style="font-size:.875rem">${escapeHtml(receipt.mimeType)} ${receipt.fileSize ? `(${Math.round(receipt.fileSize / 1024)}KB)` : ''}</div>
+              <div class="task-meta">${formatDateTime(receipt.uploadedAt)}</div>
+              ${receipt.confidenceScore != null ? `<div class="task-meta">Confidence: ${(receipt.confidenceScore * 100).toFixed(0)}%</div>` : ''}
             </div>
-            <button class="btn btn-danger btn-sm del-receipt" data-id="${r.id}">🗑</button>
+            <button class="btn btn-danger btn-sm del-receipt" data-id="${receipt.id}">🗑</button>
           </div>
-          ${renderOcrData(r.rawOcrJson)}
+          ${renderOcrData(receipt.rawOcrJson)}
         </div>
-      `).join('');
+      `;
     }
+  
 
     load();
   </script>
