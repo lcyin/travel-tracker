@@ -273,6 +273,11 @@ export class ExpensesController {
 
   // ==================== RECEIPT ENDPOINTS ====================
 
+  @Post(':expenseId/receipts')
+  @ApiOperation({ summary: 'Upload a receipt image' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiParam({ name: 'expenseId', type: 'string', description: 'Expense ID' })
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('receipt'))
   @ApiCreatedResponse({ type: Object })
   @ApiBadRequestResponse()
