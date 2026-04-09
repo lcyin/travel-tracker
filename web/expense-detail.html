@@ -156,16 +156,67 @@
       }
     }
 
+    function renderOcrData(ocr) {
+      if (!ocr) return '';
+      const rows = [];
+      if (ocr.merchantName) rows.push(`<tr><td><strong>Merchant</strong></td><td>${escapeHtml(ocr.merchantName)}</td></tr>`);
+      if (ocr.date) rows.push(`<tr><td><strong>Date</strong></td><td>${escapeHtml(ocr.date)}</td></tr>`);
+      if (ocr.totalAmount != null) rows.push(`<tr><td><strong>Total</strong></td><td>${formatCurrency(ocr.totalAmount, ocr.currency)}</td></tr>`);
+      if (ocr.subtotal != null) rows.push(`<tr><td><strong>Subtotal</strong></td><td>${formatCurrency(ocr.subtotal, ocr.currency)}</td></tr>`);
+      if (ocr.taxAmount != null) rows.push(`<tr><td><strong>Tax</strong></td><td>${formatCurrency(ocr.taxAmount, ocr.currency)}</td></tr>`);
+      if (ocr.paymentMethod) rows.push(`<tr><td><strong>Payment</strong></td><td>${escapeHtml(ocr.paymentMethod)}</td></tr>`);
+      if (ocr.confidence) rows.push(`<tr><td><strong>Confidence</strong></td><td>${escapeHtml(ocr.confidence)}</td></tr>`);
+
+      const lineItems = Array.isArray(ocr.lineItems) && ocr.lineItems.length
+        ? `<div style="margin-top:.75rem">
+            <strong style="font-size:.8125rem">Line Items</strong>
+            <table style="margin-top:.25rem;font-size:.8125rem">
+              <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
+              <tbody>
+                ${ocr.lineItems.map(item => `
+                  <tr>
+                    <td>${escapeHtml(item.name || '—')}</td>
+                    <td>${item.quantity ?? '—'}</td>
+                    <td>${item.unitPrice != null ? formatCurrency(item.unitPrice, ocr.currency) : '—'}</td>
+                    <td>${item.totalPrice != null ? formatCurrency(item.totalPrice, ocr.currency) : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`
+        : '';
+
+      const rawText = ocr.rawText
+        ? `<details style="margin-top:.5rem">
+            <summary style="font-size:.8125rem;cursor:pointer;color:var(--gray-500)">Raw OCR text</summary>
+            <pre style="font-size:.75rem;white-space:pre-wrap;background:var(--gray-100);padding:.5rem;border-radius:.25rem;margin-top:.25rem;max-height:200px;overflow-y:auto">${escapeHtml(ocr.rawText)}</pre>
+           </details>`
+        : '';
+
+      if (!rows.length && !lineItems && !rawText) return '';
+
+      return `
+        <div style="margin-top:.75rem;padding:.75rem;background:var(--gray-50);border-radius:.375rem;border:1px solid var(--gray-200)">
+          <div style="font-size:.75rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">OCR Extracted Data</div>
+          ${rows.length ? `<table style="font-size:.875rem"><tbody>${rows.join('')}</tbody></table>` : ''}
+          ${lineItems}
+          ${rawText}
+        </div>`;
+    }
+
     function renderReceipts(receipts) {
       if (!receipts.length) return '<div style="color:var(--gray-400);font-size:.875rem">No receipts attached.</div>';
       return receipts.map(r => `
-        <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--gray-100)">
-          <div style="flex:1">
-            <div style="font-size:.875rem">${escapeHtml(r.mimeType)} ${r.fileSize ? `(${Math.round(r.fileSize / 1024)}KB)` : ''}</div>
-            <div class="task-meta">${formatDateTime(r.uploadedAt)}</div>
-            ${r.confidenceScore != null ? `<div class="task-meta">Confidence: ${(r.confidenceScore * 100).toFixed(0)}%</div>` : ''}
+        <div style="padding:.75rem 0;border-bottom:1px solid var(--gray-100)">
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <div style="flex:1">
+              <div style="font-size:.875rem">${escapeHtml(r.mimeType)} ${r.fileSize ? `(${Math.round(r.fileSize / 1024)}KB)` : ''}</div>
+              <div class="task-meta">${formatDateTime(r.uploadedAt)}</div>
+              ${r.confidenceScore != null ? `<div class="task-meta">Confidence: ${(r.confidenceScore * 100).toFixed(0)}%</div>` : ''}
+            </div>
+            <button class="btn btn-danger btn-sm del-receipt" data-id="${r.id}">🗑</button>
           </div>
-          <button class="btn btn-danger btn-sm del-receipt" data-id="${r.id}">🗑</button>
+          ${renderOcrData(r.rawOcrJson)}
         </div>
       `).join('');
     }
