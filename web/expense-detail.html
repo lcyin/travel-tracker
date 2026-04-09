@@ -124,7 +124,7 @@
           uploadBtn.disabled = true;
           uploadBtn.textContent = 'Uploading...';
           const formData = new FormData();
-          formData.append('file', fileInput.files[0]);
+          formData.append('receipt', fileInput.files[0]);
           try {
             const res = await api(`/trips/${tripId}/expenses/${id}/receipts`, {
               method: 'POST',
