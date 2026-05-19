@@ -6,8 +6,11 @@ WORKDIR /app
 # Copy dependency manifests first for layer caching
 COPY package.json yarn.lock ./
 
+# Reduce transient registry timeout failures in CI/container networks
+RUN yarn config set network-timeout 600000 -g
+
 # Install ALL dependencies (dev + prod) needed for compilation
-RUN yarn install --frozen-lockfile
+RUN sh -c 'for i in 1 2 3; do yarn install --frozen-lockfile --non-interactive && exit 0; echo "yarn install failed, retry $i/3"; done; exit 1'
 
 # Copy source code and config
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
@@ -28,8 +31,11 @@ RUN apk add --no-cache dumb-init
 # Copy production dependency manifests
 COPY package.json yarn.lock ./
 
+# Reduce transient registry timeout failures in CI/container networks
+RUN yarn config set network-timeout 600000 -g
+
 # Install production-only dependencies
-RUN yarn install --frozen-lockfile --production && yarn cache clean
+RUN sh -c 'for i in 1 2 3; do yarn install --frozen-lockfile --production --non-interactive && yarn cache clean && exit 0; echo "yarn install (prod) failed, retry $i/3"; done; exit 1'
 
 # Copy compiled output from builder stage
 COPY --from=builder /app/dist ./dist
