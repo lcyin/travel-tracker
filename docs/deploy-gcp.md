@@ -1,23 +1,45 @@
-# GCP Deployment Guide
+# GCP Deployment Guide (Consolidated)
 
-Deploy the Travel Tracker NestJS API to **Cloud Run** backed by **Cloud SQL (PostgreSQL)**, with images stored in **Artifact Registry** and secrets managed via **Secret Manager**.
+Deploy the Travel Tracker NestJS API to Cloud Run with Cloud SQL (PostgreSQL), Artifact Registry, and Secret Manager.
 
----
+This guide is a single end-to-end workflow with safe defaults and idempotent commands where possible.
 
 ## Prerequisites
 
-- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) installed and authenticated
-- Docker installed
-- A GCP project created
+- Google Cloud CLI installed and authenticated
+- Docker installed and running
+- A GCP project you can administer
 
 ```bash
 gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
+gcloud auth list
 ```
 
----
+## 0) Set Environment Variables and Validate Context
 
-## Step 1 – Enable Required APIs
+```bash
+export PROJECT_ID="YOUR_PROJECT_ID"
+export REGION="asia-east1"
+export REPO="travel-tracker"
+export SERVICE="travel-tracker"
+export INSTANCE="travel-tracker-db"
+export DB_NAME="travel_tracker"
+export DB_USER="app_user"
+
+# Cost-friendly starter for Enterprise edition
+export DB_TIER="db-f1-micro"
+
+# Optional: if your org enforces Enterprise Plus, use this instead:
+# export DB_TIER="db-perf-optimized-N-2"
+
+# Runtime image path
+export IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/app"
+
+gcloud config set project "$PROJECT_ID"
+gcloud config get-value project
+```
+
+## 1) Enable Required APIs
 
 ```bash
 gcloud services enable \
@@ -27,119 +49,102 @@ gcloud services enable \
   secretmanager.googleapis.com
 ```
 
----
-
-## Step 2 – Create Artifact Registry Repository
-
-Replace `REGION` with your preferred region (e.g. `asia-east1`, `us-central1`).
+## 2) Create Artifact Registry Repository (Idempotent)
 
 ```bash
-REGION=asia-east1
-PROJECT=$(gcloud config get-value project)
-
-gcloud artifacts repositories create travel-tracker \
+gcloud artifacts repositories describe "$REPO" --location="$REGION" >/dev/null 2>&1 || \
+gcloud artifacts repositories create "$REPO" \
   --repository-format=docker \
-  --location=$REGION \
+  --location="$REGION" \
   --description="Travel Tracker Docker images"
 ```
 
----
+## 3) Create Cloud SQL PostgreSQL Instance
 
-## Step 3 – Create Cloud SQL (PostgreSQL 16)
+Use explicit edition + engine to avoid accidental defaults.
 
 ```bash
-# Create instance (db-g1-small is the cheapest non-shared option with reliable performance)
-gcloud sql instances create travel-tracker-db \
+gcloud sql instances create "$INSTANCE" \
   --database-version=POSTGRES_16 \
-  --tier=db-g1-small \
-  --region=$REGION \
+  --edition=ENTERPRISE \
+  --tier="$DB_TIER" \
+  --region="$REGION" \
   --availability-type=zonal \
   --no-backup
+```
 
-# Create database
-gcloud sql databases create travel_tracker --instance=travel-tracker-db
+Create database and app user:
 
-# Create app user (use a strong password)
-DB_PASSWORD=$(openssl rand -base64 24)
-echo "DB Password: $DB_PASSWORD"  # Save this!
-gcloud sql users create app_user \
-  --instance=travel-tracker-db \
+```bash
+gcloud sql databases create "$DB_NAME" --instance="$INSTANCE"
+
+DB_PASSWORD="$(openssl rand -base64 24)"
+echo "DB password generated. Save this securely."
+
+gcloud sql users create "$DB_USER" \
+  --instance="$INSTANCE" \
   --password="$DB_PASSWORD"
 ```
 
----
+## 4) Create Secrets and Add Secret Versions
 
-## Step 4 – Store Secrets in Secret Manager
+Important: Cloud Run references `:latest`, so each secret must have at least one version.
 
 ```bash
-# Database password
-echo -n "$DB_PASSWORD" | gcloud secrets create DB_PASSWORD --data-file=-
+# Create secrets if missing
+gcloud secrets describe DB_PASSWORD >/dev/null 2>&1 || gcloud secrets create DB_PASSWORD --replication-policy="automatic"
+gcloud secrets describe JWT_SECRET >/dev/null 2>&1 || gcloud secrets create JWT_SECRET --replication-policy="automatic"
+gcloud secrets describe GEMINI_API_KEY >/dev/null 2>&1 || gcloud secrets create GEMINI_API_KEY --replication-policy="automatic"
 
-# JWT secrets (use strong random values)
-echo -n "$(openssl rand -base64 48)" | gcloud secrets create JWT_SECRET --data-file=-
-
-# Gemini API key (from https://aistudio.google.com/app/apikey)
-echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create GEMINI_API_KEY --data-file=-
+# Add secret versions
+echo -n "$DB_PASSWORD" | gcloud secrets versions add DB_PASSWORD --data-file=-
+echo -n "$(openssl rand -base64 48)" | gcloud secrets versions add JWT_SECRET --data-file=-
+# Replace with your real Gemini key:
+echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
 ```
 
----
-
-## Step 5 – Build & Push Docker Image
+## 5) Build and Push Docker Image
 
 ```bash
-IMAGE=$REGION-docker.pkg.dev/$PROJECT/travel-tracker/app
+gcloud auth configure-docker "${REGION}-docker.pkg.dev"
 
-# Authenticate Docker with Artifact Registry
-gcloud auth configure-docker $REGION-docker.pkg.dev
-
-# Build and push
-docker build -t $IMAGE:latest .
-docker push $IMAGE:latest
+docker build -t "${IMAGE}:latest" .
+docker push "${IMAGE}:latest"
 ```
 
----
+## 6) Grant Runtime IAM Permissions
 
-## Step 6 – Grant Cloud Run Access to Secrets & Cloud SQL
+Cloud Run runtime service account needs:
+- Secret access (`roles/secretmanager.secretAccessor`)
+- Cloud SQL connectivity (`roles/cloudsql.client`)
 
 ```bash
-# Get the Cloud Run service account email (created after first deploy)
-# For now grant to the project compute service account
-SA="$(gcloud projects describe $PROJECT --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
-gcloud secrets add-iam-policy-binding DB_PASSWORD \
-  --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
+for SECRET in DB_PASSWORD JWT_SECRET GEMINI_API_KEY; do
+  gcloud secrets add-iam-policy-binding "$SECRET" \
+    --member="serviceAccount:${RUNTIME_SA}" \
+    --role="roles/secretmanager.secretAccessor"
+done
 
-gcloud secrets add-iam-policy-binding JWT_SECRET \
-  --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
-
-gcloud secrets add-iam-policy-binding GEMINI_API_KEY \
-  --member="serviceAccount:$SA" --role="roles/secretmanager.secretAccessor"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${RUNTIME_SA}" \
+  --role="roles/cloudsql.client"
 ```
 
----
-
-## Step 7 – Deploy to Cloud Run
+## 7) Deploy to Cloud Run
 
 ```bash
-CLOUDSQL_CONNECTION=$(gcloud sql instances describe travel-tracker-db \
-  --format='value(connectionName)')
+CLOUDSQL_CONNECTION="$(gcloud sql instances describe "$INSTANCE" --format='value(connectionName)')"
 
-gcloud run deploy travel-tracker \
-  --image=$IMAGE:latest \
+gcloud run deploy "$SERVICE" \
+  --image="${IMAGE}:latest" \
   --platform=managed \
-  --region=$REGION \
-  --add-cloudsql-instances=$CLOUDSQL_CONNECTION \
-  --set-env-vars="\
-DB_HOST=/cloudsql/$CLOUDSQL_CONNECTION,\
-DB_PORT=5432,\
-DB_USERNAME=app_user,\
-DB_NAME=travel_tracker,\
-JWT_EXPIRATION=15m,\
-JWT_REFRESH_EXPIRATION=7d" \
-  --set-secrets="\
-DB_PASSWORD=DB_PASSWORD:latest,\
-JWT_SECRET=JWT_SECRET:latest,\
-GEMINI_API_KEY=GEMINI_API_KEY:latest" \
+  --region="$REGION" \
+  --add-cloudsql-instances="$CLOUDSQL_CONNECTION" \
+  --set-env-vars="DB_HOST=/cloudsql/${CLOUDSQL_CONNECTION},DB_PORT=5432,DB_USERNAME=${DB_USER},DB_NAME=${DB_NAME},JWT_EXPIRATION=15m,JWT_REFRESH_EXPIRATION=7d" \
+  --set-secrets="DB_PASSWORD=DB_PASSWORD:latest,JWT_SECRET=JWT_SECRET:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest" \
   --allow-unauthenticated \
   --min-instances=1 \
   --memory=512Mi \
@@ -147,60 +152,60 @@ GEMINI_API_KEY=GEMINI_API_KEY:latest" \
   --port=8080
 ```
 
-> `DB_HOST` uses the Unix socket path `/cloudsql/...` — Cloud Run connects to Cloud SQL this way without a VPC.
+Notes:
+- `DB_HOST` uses Unix socket path `/cloudsql/...` for Cloud SQL connectivity.
+- Keep line-continuation backslashes (`\`) when splitting commands across lines.
 
-After deploy, Cloud Run outputs a URL like `https://travel-tracker-xxxx-xx.a.run.app`.
-
----
-
-## Step 8 – Verify
+## 8) Verify Deployment
 
 ```bash
-SERVICE_URL=$(gcloud run services describe travel-tracker \
-  --region=$REGION --format='value(status.url)')
+SERVICE_URL="$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')"
 
-# Health check
-curl $SERVICE_URL/health
-
-# Swagger docs
-echo "Open: $SERVICE_URL/docs"
-
-# Web app
-echo "Open: $SERVICE_URL"
+echo "Service URL: ${SERVICE_URL}"
+curl "${SERVICE_URL}/health"
+echo "Swagger: ${SERVICE_URL}/docs"
 ```
 
----
-
-## Updating the App (Re-deploy)
+## Re-deploy Workflow
 
 ```bash
-docker build -t $IMAGE:latest .
-docker push $IMAGE:latest
-gcloud run deploy travel-tracker --image=$IMAGE:latest --region=$REGION
+docker build -t "${IMAGE}:latest" .
+docker push "${IMAGE}:latest"
+gcloud run deploy "$SERVICE" --image="${IMAGE}:latest" --region="$REGION"
 ```
 
----
+## Common Pitfalls
 
-## ⚠️ Known Limitation: File Uploads
+- `zsh: command not found: --flag`
+  - Cause: multiline command missing trailing `\`
+  - Fix: keep all continuation backslashes or run command on one line
 
-Receipt image uploads currently write to local disk (`/uploads/receipts/`).  
-**Cloud Run containers are ephemeral — files will be lost on restart.**
+- `Invalid Tier ... for (ENTERPRISE_PLUS)`
+  - Cause: machine type incompatible with inferred/forced edition
+  - Fix: set `--edition=ENTERPRISE` and a compatible tier, or use Enterprise Plus-compatible tiers
 
-To fix before using receipts in production:
+- `Permission denied on secret ...`
+  - Cause: runtime service account missing secret access
+  - Fix: grant `roles/secretmanager.secretAccessor` on required secrets
+
+- `Secret ... versions/latest was not found`
+  - Cause: secret exists but has no versions
+  - Fix: add at least one version via `gcloud secrets versions add ...`
+
+## Cost Notes
+
+- Lower cost:
+  - Cloud Run `--min-instances=0` (accepts cold starts)
+  - Smaller Cloud SQL tier when supported
+- Performance/stability trade-off:
+  - Increase DB tier if connection limits or CPU become bottlenecks
+
+## Known Limitation
+
+Receipt uploads currently write to local container disk (`/uploads/receipts/`).
+Cloud Run containers are ephemeral, so files are not durable.
+
+For production durability:
 1. Create a Cloud Storage bucket
-2. Replace disk writes with `@google-cloud/storage` SDK uploads
-3. Return signed URLs instead of local paths
-
----
-
-## Cost Estimate (light usage)
-
-| Service | Tier | ~Monthly Cost |
-|---------|------|--------------|
-| Cloud Run | 1 min instance, 512Mi | ~$10-15 |
-| Cloud SQL | db-g1-small, zonal | ~$25 |
-| Artifact Registry | < 1GB | ~$0.10 |
-| Secret Manager | 3 secrets | ~$0.18 |
-| **Total** | | **~$35-40/mo** |
-
-To reduce cost: use `--min-instances=0` (cold starts of ~2-3s) and `db-f1-micro` (~$7/mo but limited connections).
+2. Upload receipts with `@google-cloud/storage`
+3. Store/return signed URLs instead of local file paths
