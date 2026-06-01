@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   Query,
   Put,
+  Patch,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -47,6 +48,13 @@ import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { OcrExtractionService } from './services/ocr-extraction.service';
+import { ParticipantService } from './services/participant.service';
+import { SettlementService } from './services/settlement.service';
+import { CreateParticipantDto } from './dto/create-participant.dto';
+import { UpdateParticipantDto } from './dto/update-participant.dto';
+import { ParticipantResponseDto } from './dto/participant-response.dto';
+import { SetExpenseSplitDto } from './dto/set-expense-split.dto';
+import { SettlementResponseDto } from './dto/settlement-response.dto';
 
 @ApiTags('Expenses')
 @ApiBearerAuth('access-token')
@@ -56,6 +64,8 @@ export class ExpensesController {
   constructor(
     private readonly expensesService: ExpensesService,
     private readonly ocrService: OcrExtractionService,
+    private readonly participantService: ParticipantService,
+    private readonly settlementService: SettlementService,
   ) {}
 
   // ==================== EXPENSE ENDPOINTS ====================
@@ -205,6 +215,116 @@ export class ExpensesController {
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<DeleteResponseDto> {
     return this.expensesService.deleteBudget(tripId, user.sub);
+  }
+
+  // ==================== PARTICIPANT ENDPOINTS ====================
+
+  @Post('participants')
+  @ApiOperation({
+    summary: 'Add a participant to the cost splitter for this trip',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiCreatedResponse({ type: ParticipantResponseDto })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  async createParticipant(
+    @Param('tripId') tripId: string,
+    @Body() dto: CreateParticipantDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ParticipantResponseDto> {
+    return this.participantService.create(tripId, user.sub, dto);
+  }
+
+  @Get('participants')
+  @ApiOperation({
+    summary: 'List all participants for cost splitting on this trip',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: [ParticipantResponseDto] })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  async listParticipants(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ParticipantResponseDto[]> {
+    return this.participantService.findAll(tripId, user.sub);
+  }
+
+  @Get('participants/:participantId')
+  @ApiOperation({ summary: 'Get a single participant by ID' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiParam({
+    name: 'participantId',
+    type: 'string',
+    description: 'Participant ID',
+  })
+  @ApiOkResponse({ type: ParticipantResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Participant not found' })
+  async getParticipant(
+    @Param('tripId') tripId: string,
+    @Param('participantId') participantId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ParticipantResponseDto> {
+    return this.participantService.findOne(tripId, participantId, user.sub);
+  }
+
+  @Patch('participants/:participantId')
+  @ApiOperation({ summary: 'Update a participant' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiParam({
+    name: 'participantId',
+    type: 'string',
+    description: 'Participant ID',
+  })
+  @ApiOkResponse({ type: ParticipantResponseDto })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Participant not found' })
+  async updateParticipant(
+    @Param('tripId') tripId: string,
+    @Param('participantId') participantId: string,
+    @Body() dto: UpdateParticipantDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ParticipantResponseDto> {
+    return this.participantService.update(tripId, participantId, user.sub, dto);
+  }
+
+  @Delete('participants/:participantId')
+  @ApiOperation({ summary: 'Remove a participant from the cost splitter' })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiParam({
+    name: 'participantId',
+    type: 'string',
+    description: 'Participant ID',
+  })
+  @ApiOkResponse({ type: DeleteResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Participant not found' })
+  async removeParticipant(
+    @Param('tripId') tripId: string,
+    @Param('participantId') participantId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<DeleteResponseDto> {
+    return this.participantService.remove(tripId, participantId, user.sub);
+  }
+
+  // ==================== SETTLEMENT ENDPOINTS ====================
+
+  @Get('settlements')
+  @ApiOperation({
+    summary: 'Calculate who owes whom to settle all shared expenses',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiOkResponse({ type: SettlementResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Trip not found' })
+  async getSettlements(
+    @Param('tripId') tripId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<SettlementResponseDto> {
+    return this.settlementService.calculateSettlements(tripId, user.sub);
   }
 
   // ==================== EXPENSE :id WILDCARD ENDPOINTS ====================
@@ -386,5 +506,24 @@ export class ExpensesController {
       throw new BadRequestException('Receipt file is required');
     }
     return this.expensesService.createFromReceipt(tripId, file, user.sub);
+  }
+
+  @Put(':id/split')
+  @ApiOperation({
+    summary: 'Set or update how an expense is split among participants',
+  })
+  @ApiParam({ name: 'tripId', type: 'string', description: 'Trip ID' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Expense ID' })
+  @ApiOkResponse({ type: ExpenseResponseDto })
+  @ApiBadRequestResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'Expense or participant not found' })
+  async setExpenseSplit(
+    @Param('tripId') tripId: string,
+    @Param('id') id: string,
+    @Body() dto: SetExpenseSplitDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ExpenseResponseDto> {
+    return this.expensesService.setSplit(tripId, id, user.sub, dto);
   }
 }

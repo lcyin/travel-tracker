@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cost Splitter – Travel Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .chip-group { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+    .chip {
+      padding: .375rem .875rem;
+      border-radius: 999px;
+      border: 1.5px solid var(--gray-300);
+      background: var(--white, #fff);
+      cursor: pointer;
+      font-size: .875rem;
+      transition: background .15s, border-color .15s;
+      user-select: none;
+    }
+    .chip.active {
+      background: var(--primary, #2563eb);
+      border-color: var(--primary, #2563eb);
+      color: #fff;
+    }
+    .panel-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 100;
+      align-items: flex-end;
+    }
+    .panel-overlay.open { display: flex; }
+    .panel {
+      background: #fff;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      border-radius: 1rem 1rem 0 0;
+      padding: 1.5rem;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+    }
+    .panel-title { font-size: 1.125rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .balance-net.positive { color: #16a34a; }
+    .balance-net.negative { color: #dc2626; }
+    .settlement-item {
+      padding: .75rem 1rem;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: .5rem;
+      margin-bottom: .5rem;
+      font-size: .9375rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-wide">
+    <div id="breadcrumb"></div>
+    <div id="content"><div class="loading">Loading…</div></div>
+  </div>
+
+  <!-- Split Configuration Panel -->
+  <div class="panel-overlay" id="split-overlay">
+    <div class="panel">
+      <div class="panel-title">Configure Split</div>
+      <input type="hidden" id="split-expense-id">
+
+      <div class="form-group">
+        <label class="form-label">Paid by</label>
+        <div class="chip-group" id="payer-chips"></div>
+      </div>
+
+      <div class="form-group" style="margin-top:1rem">
+        <label class="form-label">Split mode</label>
+        <div class="chip-group">
+          <span class="chip active" data-mode="equal" id="mode-equal">Equal</span>
+          <span class="chip" data-mode="by_stay_days" id="mode-stay">By stay days</span>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:1rem">
+        <label class="form-label">Included participants</label>
+        <div class="chip-group" id="included-chips"></div>
+      </div>
+
+      <div style="display:flex;gap:.75rem;margin-top:1.5rem">
+        <button class="btn btn-primary" id="save-split-btn" style="flex:1">Save</button>
+        <button class="btn btn-outline" id="cancel-split-btn" style="flex:1">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { apiJson } from '/js/api.js';
+    import { requireAuth, renderNav, renderBreadcrumb } from '/js/auth.js';
+    import { getParam, formatDate, formatCurrency, showToast, escapeHtml, confirm as confirmAction } from '/js/utils.js';
+
+    if (!requireAuth()) throw new Error('redirect');
+    renderNav('expenses');
+
+    const tripId = getParam('tripId');
+    if (!tripId) { window.location.href = '/trips.html'; throw new Error('no tripId'); }
+
+    let trip = null;
+    let participants = [];
+    let expenses = [];
+
+    // ── helpers ────────────────────────────────────────────────────
+
+    function fmt(amount, currency) {
+      if (amount == null) return '—';
+      return `${Number(amount).toFixed(2)} ${currency ?? ''}`;
+    }
+
+    function splitModeLabel(mode) {
+      if (mode === 'equal') return 'Equal';
+      if (mode === 'by_stay_days') return 'By stay days';
+      return '—';
+    }
+
+    // ── data loading ────────────────────────────────────────────────
+
+    async function loadAll() {
+      [trip, participants, expenses] = await Promise.all([
+        apiJson(`/trips/${tripId}`),
+        apiJson(`/trips/${tripId}/expenses/participants`),
+        apiJson(`/trips/${tripId}/expenses`),
+      ]);
+      render();
+    }
+
+    // ── render ───────────────────────────────────────────────────────
+
+    function render() {
+      document.title = `Cost Splitter – ${escapeHtml(trip.title)} – Travel Tracker`;
+      renderBreadcrumb(document.getElementById('breadcrumb'), [
+        { label: 'Trips', href: '/trips.html' },
+        { label: trip.title, href: `/trip-dashboard.html?id=${trip.id}` },
+        { label: 'Cost Splitter' },
+      ]);
+
+      const currency = trip.baseCurrency ?? '';
+
+      document.getElementById('content').innerHTML = `
+        <!-- Trip info -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Cost Splitter</h1>
+            <div style="color:var(--gray-500);font-size:.875rem;margin-top:.25rem">
+              ${escapeHtml(trip.title)}
+              ${currency ? ` · Base currency: <strong>${escapeHtml(currency)}</strong>` : ''}
+            </div>
+          </div>
+          <a href="/trip-dashboard.html?id=${trip.id}" class="btn btn-outline btn-sm">← Dashboard</a>
+        </div>
+
+        <!-- Participants section -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="card-title" style="margin:0">Participants &amp; Stay Dates</div>
+          </div>
+          <form id="add-participant-form" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;margin-bottom:1rem">
+            <div class="form-group" style="flex:1;min-width:120px;margin:0">
+              <input class="form-input" type="text" id="p-name" placeholder="Name" required maxlength="100">
+            </div>
+            <div class="form-group" style="flex:1;min-width:130px;margin:0">
+              <input class="form-input" type="date" id="p-start" required>
+            </div>
+            <div class="form-group" style="flex:1;min-width:130px;margin:0">
+              <input class="form-input" type="date" id="p-end" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+          </form>
+          <div id="participants-list">${renderParticipantsTable()}</div>
+        </div>
+
+        <!-- Expenses section -->
+        <div class="card" style="margin-bottom:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div class="card-title" style="margin:0">Expenses</div>
+            <a href="/expense-form.html?tripId=${tripId}" class="btn btn-primary btn-sm">+ Add Expense</a>
+          </div>
+          <div id="expenses-list">${renderExpensesTable(currency)}</div>
+        </div>
+
+        <!-- Summary & Settlements -->
+        <div class="card">
+          <div class="card-title">Summary &amp; Settlements</div>
+          <div id="settlements-section"><div class="loading" style="font-size:.875rem">Loading settlements…</div></div>
+        </div>
+      `;
+
+      document.getElementById('add-participant-form').addEventListener('submit', handleAddParticipant);
+
+      // Constrain stay date pickers to the trip duration
+      if (trip.startDate && trip.endDate) {
+        const pStart = document.getElementById('p-start');
+        const pEnd = document.getElementById('p-end');
+        pStart.min = trip.startDate;
+        pStart.max = trip.endDate;
+        pEnd.min = trip.startDate;
+        pEnd.max = trip.endDate;
+      }
+
+      loadSettlements();
+    }
+
+    function renderParticipantsTable() {
+      if (participants.length === 0) {
+        return '<p style="color:var(--gray-500);font-size:.875rem">No participants yet. Add people above to start splitting expenses.</p>';
+      }
+      const rows = participants.map(p => `
+        <tr>
+          <td>${escapeHtml(p.name)}</td>
+          <td>${p.stayStart} → ${p.stayEnd}</td>
+          <td>
+            <button class="btn btn-danger btn-sm" onclick="removeParticipant('${p.id}')">Remove</button>
+          </td>
+        </tr>
+      `).join('');
+      return `
+        <table class="table">
+          <thead><tr><th>Name</th><th>Stay period</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function renderExpensesTable(currency) {
+      const splitExpenses = expenses.filter(e => e.splitMode);
+      const unsplitExpenses = expenses.filter(e => !e.splitMode);
+      const allRows = [...splitExpenses, ...unsplitExpenses];
+
+      if (allRows.length === 0) {
+        return '<p style="color:var(--gray-500);font-size:.875rem">No expenses yet. Add expenses from the button above.</p>';
+      }
+
+      const rows = allRows.map(e => {
+        const date = e.occurredAt ? new Date(e.occurredAt).toLocaleDateString() : '—';
+        const amount = fmt(e.baseAmount ?? e.amount, e.baseCurrency ?? e.currency);
+        const paidBy = e.paidByParticipant ? escapeHtml(e.paidByParticipant.name) : '<span style="color:var(--gray-400)">—</span>';
+        const mode = e.splitMode ? `<span class="badge badge-gray">${splitModeLabel(e.splitMode)}</span>` : '—';
+        return `
+          <tr>
+            <td>${date}</td>
+            <td>${escapeHtml(e.merchantName ?? e.notes ?? '—')}</td>
+            <td>${amount}</td>
+            <td>${paidBy}</td>
+            <td>${mode}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="openSplitPanel('${e.id}')">
+                ${e.splitMode ? '✏ Edit Split' : 'Set Split'}
+              </button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <table class="table">
+          <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Paid by</th><th>Split</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    async function loadSettlements() {
+      const el = document.getElementById('settlements-section');
+      if (!el) return;
+      try {
+        const data = await apiJson(`/trips/${tripId}/expenses/settlements`);
+        el.innerHTML = renderSettlements(data);
+      } catch (err) {
+        el.innerHTML = `<p style="color:var(--gray-500);font-size:.875rem">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    // Compute per-person share for a single expense (mirrors server logic)
+    function computeExpenseShares(expense) {
+      const baseAmount = Number(expense.baseAmount ?? expense.amount ?? 0);
+      const included = expense.includedParticipants ?? [];
+      const shares = {};
+
+      if (!expense.splitMode || !included.length || baseAmount === 0) return shares;
+
+      if (expense.splitMode === 'equal') {
+        const share = baseAmount / included.length;
+        for (const eip of included) shares[eip.id] = share;
+        return shares;
+      }
+
+      if (expense.splitMode === 'by_stay_days') {
+        const expStart = expense.occurredAt ? expense.occurredAt.split('T')[0] : null;
+        const expEnd = expense.expenseEndDate ?? expStart;
+        if (!expStart || !expEnd) {
+          const share = baseAmount / included.length;
+          for (const eip of included) shares[eip.id] = share;
+          return shares;
+        }
+        const nightsMap = {};
+        let totalNights = 0;
+        for (const eip of included) {
+          const p = participants.find(x => x.id === eip.id);
+          if (!p) { nightsMap[eip.id] = 0; continue; }
+          const start = new Date(Math.max(new Date(p.stayStart), new Date(expStart)));
+          const end   = new Date(Math.min(new Date(p.stayEnd),   new Date(expEnd)));
+          const nights = Math.max(0, (end - start) / 86400000);
+          nightsMap[eip.id] = nights;
+          totalNights += nights;
+        }
+        if (totalNights > 0) {
+          for (const eip of included) shares[eip.id] = baseAmount * (nightsMap[eip.id] / totalNights);
+        } else {
+          const share = baseAmount / included.length;
+          for (const eip of included) shares[eip.id] = share;
+        }
+        return shares;
+      }
+
+      return shares;
+    }
+
+    function renderSettlements(data) {
+      const currency = data.currency ?? '';
+
+      if (data.balances.length === 0) {
+        return '<p style="color:var(--gray-500);font-size:.875rem">Add participants to see balances.</p>';
+      }
+
+      // Pre-compute per-expense shares for all split expenses
+      const splitExpenses = expenses.filter(e => e.splitMode && e.paidByParticipant?.id && (e.includedParticipants ?? []).length);
+      const expenseShares = splitExpenses.map(e => ({ expense: e, shares: computeExpenseShares(e) }));
+
+      const balanceRows = data.balances.map(b => {
+        const pid = b.participant.id;
+        const netClass = b.net > 0.005 ? 'positive' : b.net < -0.005 ? 'negative' : '';
+        const netSign = b.net > 0.005 ? '+' : '';
+
+        // Build per-expense breakdown for this participant
+        const breakdownRows = expenseShares
+          .filter(({ shares }) => shares[pid] != null)
+          .map(({ expense, shares }) => {
+            const date = expense.occurredAt ? new Date(expense.occurredAt).toLocaleDateString() : '—';
+            const desc = escapeHtml(expense.merchantName ?? expense.notes ?? '—');
+            const total = fmt(expense.baseAmount ?? expense.amount, currency);
+            const share = fmt(shares[pid], currency);
+            const isPayer = expense.paidByParticipant?.id === pid;
+            const paidBadge = isPayer ? ' <span style="color:var(--primary);font-size:.75rem">(paid)</span>' : '';
+            return `
+              <tr style="background:var(--gray-50);font-size:.8rem;color:var(--gray-600)">
+                <td style="padding:.35rem .75rem">${date}</td>
+                <td style="padding:.35rem .75rem">${desc}</td>
+                <td style="padding:.35rem .75rem;color:var(--gray-400)">${total}</td>
+                <td style="padding:.35rem .75rem;font-weight:500;color:var(--gray-700)">${share}${paidBadge}</td>
+              </tr>`;
+          }).join('');
+
+        const detailId = `breakdown-${pid}`;
+        const toggle = breakdownRows
+          ? `<button class="btn btn-outline btn-sm" style="font-size:.75rem;padding:.15rem .5rem"
+                onclick="toggleBreakdown('${detailId}')">▶ Details</button>`
+          : '';
+
+        return `
+          <tr>
+            <td><strong>${escapeHtml(b.participant.name)}</strong>${toggle ? '<br>' + toggle : ''}</td>
+            <td>${fmt(b.paid, currency)}</td>
+            <td>${fmt(b.share, currency)}</td>
+            <td class="balance-net ${netClass}">${netSign}${fmt(b.net, currency)}</td>
+          </tr>
+          ${breakdownRows ? `<tr id="${detailId}" style="display:none"><td colspan="4" style="padding:0">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="background:var(--gray-100);font-size:.75rem;color:var(--gray-500)">
+                <th style="padding:.3rem .75rem;font-weight:500">Date</th>
+                <th style="padding:.3rem .75rem;font-weight:500">Expense</th>
+                <th style="padding:.3rem .75rem;font-weight:500">Total</th>
+                <th style="padding:.3rem .75rem;font-weight:500">Share</th>
+              </tr>${breakdownRows}</table>
+          </td></tr>` : ''}`;
+      }).join('');
+
+      const balanceTable = `
+        <table class="table" style="margin-bottom:1.5rem">
+          <thead><tr><th>Person</th><th>Paid</th><th>Share</th><th>Net</th></tr></thead>
+          <tbody>${balanceRows}</tbody>
+        </table>`;
+
+      let paymentsHtml;
+      if (data.payments.length === 0) {
+        paymentsHtml = '<p style="color:#16a34a;font-weight:500">✓ Everyone is settled.</p>';
+      } else {
+        paymentsHtml = data.payments.map(p =>
+          `<div class="settlement-item">
+            💸 <strong>${escapeHtml(p.from.name)}</strong> pays
+            <strong>${escapeHtml(p.to.name)}</strong>
+            <span style="float:right;font-weight:600">${fmt(p.amount, currency)}</span>
+          </div>`
+        ).join('');
+      }
+
+      return `
+        <h3 style="font-size:1rem;font-weight:600;margin-bottom:.75rem">Balances</h3>
+        ${balanceTable}
+        <h3 style="font-size:1rem;font-weight:600;margin-bottom:.75rem">Settlements</h3>
+        ${paymentsHtml}`;
+    }
+
+    // ── participant actions ──────────────────────────────────────────
+
+    async function handleAddParticipant(e) {
+      e.preventDefault();
+      const name = document.getElementById('p-name').value.trim();
+      const stayStart = document.getElementById('p-start').value;
+      const stayEnd = document.getElementById('p-end').value;
+
+      if (!name || !stayStart || !stayEnd) return;
+      if (stayEnd <= stayStart) { showToast('End date must be after start date', 'error'); return; }
+      if (trip.startDate && trip.endDate) {
+        if (stayStart < trip.startDate || stayEnd > trip.endDate) {
+          showToast(`Stay dates must be within the trip duration (${trip.startDate} – ${trip.endDate})`, 'error');
+          return;
+        }
+      }
+
+      try {
+        await apiJson(`/trips/${tripId}/expenses/participants`, {
+          method: 'POST',
+          body: JSON.stringify({ name, stayStart, stayEnd }),
+        });
+        document.getElementById('add-participant-form').reset();
+        participants = await apiJson(`/trips/${tripId}/expenses/participants`);
+        document.getElementById('participants-list').innerHTML = renderParticipantsTable();
+        await loadSettlements();
+        showToast('Participant added');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    window.toggleBreakdown = function(id) {
+      const row = document.getElementById(id);
+      if (!row) return;
+      const btn = row.previousElementSibling?.querySelector('button');
+      if (row.style.display === 'none') {
+        row.style.display = '';
+        if (btn) btn.textContent = '▼ Details';
+      } else {
+        row.style.display = 'none';
+        if (btn) btn.textContent = '▶ Details';
+      }
+    };
+
+    window.removeParticipant = async function(participantId) {
+      if (!confirmAction('Remove this participant? They will be removed from all expense splits.')) return;
+      try {
+        await apiJson(`/trips/${tripId}/expenses/participants/${participantId}`, { method: 'DELETE' });
+        participants = await apiJson(`/trips/${tripId}/expenses/participants`);
+        expenses = await apiJson(`/trips/${tripId}/expenses`);
+        document.getElementById('participants-list').innerHTML = renderParticipantsTable();
+        document.getElementById('expenses-list').innerHTML = renderExpensesTable(trip.baseCurrency ?? '');
+        await loadSettlements();
+        showToast('Participant removed');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+
+    // ── split panel ─────────────────────────────────────────────────
+
+    let currentSplitMode = 'equal';
+    let selectedPayerId = null;
+    let selectedIncluded = new Set();
+
+    window.openSplitPanel = function(expenseId) {
+      if (participants.length === 0) {
+        showToast('Add participants first before configuring a split.', 'error');
+        return;
+      }
+
+      const expense = expenses.find(e => e.id === expenseId);
+      document.getElementById('split-expense-id').value = expenseId;
+
+      // Pre-fill from existing split config
+      currentSplitMode = expense?.splitMode ?? 'equal';
+      selectedPayerId = expense?.paidByParticipant?.id ?? null;
+      selectedIncluded = new Set(
+        expense?.includedParticipants?.map(p => p.id) ?? participants.map(p => p.id)
+      );
+
+      renderPayerChips();
+      renderIncludedChips();
+      renderSplitModeChips();
+
+      document.getElementById('split-overlay').classList.add('open');
+    };
+
+    function renderPayerChips() {
+      document.getElementById('payer-chips').innerHTML = participants.map(p => `
+        <span class="chip ${selectedPayerId === p.id ? 'active' : ''}"
+              data-payer="${p.id}">${escapeHtml(p.name)}</span>
+      `).join('');
+
+      document.querySelectorAll('#payer-chips .chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          selectedPayerId = chip.dataset.payer;
+          renderPayerChips();
+        });
+      });
+    }
+
+    function renderIncludedChips() {
+      document.getElementById('included-chips').innerHTML = participants.map(p => `
+        <span class="chip ${selectedIncluded.has(p.id) ? 'active' : ''}"
+              data-included="${p.id}">${escapeHtml(p.name)}</span>
+      `).join('');
+
+      document.querySelectorAll('#included-chips .chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.included;
+          if (selectedIncluded.has(id)) selectedIncluded.delete(id);
+          else selectedIncluded.add(id);
+          renderIncludedChips();
+        });
+      });
+    }
+
+    function renderSplitModeChips() {
+      document.getElementById('mode-equal').classList.toggle('active', currentSplitMode === 'equal');
+      document.getElementById('mode-stay').classList.toggle('active', currentSplitMode === 'by_stay_days');
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        currentSplitMode = chip.dataset.mode;
+        renderSplitModeChips();
+      });
+    });
+
+    document.getElementById('cancel-split-btn').addEventListener('click', () => {
+      document.getElementById('split-overlay').classList.remove('open');
+    });
+
+    document.getElementById('split-overlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('split-overlay')) {
+        document.getElementById('split-overlay').classList.remove('open');
+      }
+    });
+
+    document.getElementById('save-split-btn').addEventListener('click', async () => {
+      const expenseId = document.getElementById('split-expense-id').value;
+
+      if (!selectedPayerId) { showToast('Please select who paid.', 'error'); return; }
+      if (selectedIncluded.size === 0) { showToast('Select at least one included participant.', 'error'); return; }
+
+      try {
+        await apiJson(`/trips/${tripId}/expenses/${expenseId}/split`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            paidByParticipantId: selectedPayerId,
+            splitMode: currentSplitMode,
+            includedParticipantIds: Array.from(selectedIncluded),
+          }),
+        });
+
+        expenses = await apiJson(`/trips/${tripId}/expenses`);
+        document.getElementById('expenses-list').innerHTML = renderExpensesTable(trip.baseCurrency ?? '');
+        await loadSettlements();
+        document.getElementById('split-overlay').classList.remove('open');
+        showToast('Split saved');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    // ── boot ────────────────────────────────────────────────────────
+    loadAll().catch(err => {
+      document.getElementById('content').innerHTML =
+        `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+    });
+  </script>
+</body>
+</html>

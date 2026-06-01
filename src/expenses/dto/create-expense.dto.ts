@@ -7,12 +7,14 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  IsUUID,
 } from 'class-validator';
 import {
   ExpenseCategory,
   ExpenseSource,
   PaymentMethod,
 } from '../enums/expense.enums';
+import { SplitMode } from './set-expense-split.dto';
 
 export class CreateExpenseDto {
   @ApiProperty({
@@ -77,4 +79,31 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsEnum(ExpenseSource)
   source?: ExpenseSource;
+
+  @ApiPropertyOptional({
+    description: 'ID of the trip participant who paid for this expense',
+    format: 'uuid',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @IsOptional()
+  @IsUUID()
+  paidByParticipantId?: string;
+
+  @ApiPropertyOptional({
+    description: 'How to split the cost among participants',
+    enum: SplitMode,
+    example: SplitMode.Equal,
+  })
+  @IsOptional()
+  @IsEnum(SplitMode)
+  splitMode?: SplitMode;
+
+  @ApiPropertyOptional({
+    description:
+      'End date for multi-day expenses (e.g. hotel stay). ISO 8601 date.',
+    example: '2026-11-05',
+  })
+  @IsOptional()
+  @IsDateString()
+  expenseEndDate?: string;
 }

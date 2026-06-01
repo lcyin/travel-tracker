@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -10,6 +11,8 @@ import {
 } from 'typeorm';
 import { Trip } from '../../trips/entities/trip.entity';
 import { Receipt } from './receipt.entity';
+import { TripParticipant } from './trip-participant.entity';
+import { ExpenseIncludedParticipant } from './expense-included-participant.entity';
 import {
   ExtractionStatus,
   ExpenseCategory,
@@ -72,6 +75,26 @@ export class Expense {
 
   @Column({ type: 'varchar', default: ExtractionStatus.None })
   extractionStatus!: ExtractionStatus;
+
+  @Column({ type: 'uuid', nullable: true })
+  paidByParticipantId?: string;
+
+  @ManyToOne(() => TripParticipant, {
+    onDelete: 'SET NULL',
+    nullable: true,
+    eager: false,
+  })
+  @JoinColumn({ name: 'paidByParticipantId' })
+  paidByParticipant?: TripParticipant;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  splitMode?: string;
+
+  @Column({ type: 'date', nullable: true })
+  expenseEndDate?: string;
+
+  @OneToMany(() => ExpenseIncludedParticipant, (eip) => eip.expense)
+  includedParticipants?: ExpenseIncludedParticipant[];
 
   @OneToMany(() => Receipt, (receipt) => receipt.expense)
   receipts?: Receipt[];

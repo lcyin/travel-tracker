@@ -5,6 +5,8 @@ import {
   ExtractionStatus,
   ExpenseSource,
 } from '../enums/expense.enums';
+import { ParticipantResponseDto } from './participant-response.dto';
+import { SplitMode } from './set-expense-split.dto';
 
 export class ReceiptResponseDto {
   @ApiProperty({
@@ -183,6 +185,30 @@ export class ExpenseResponseDto {
     type: () => ReceiptResponseDto,
   })
   receipt?: ReceiptResponseDto;
+
+  @ApiPropertyOptional({
+    description: 'Participant who paid for this expense',
+    type: () => ParticipantResponseDto,
+  })
+  paidByParticipant?: ParticipantResponseDto;
+
+  @ApiPropertyOptional({
+    description: 'How the cost is split among participants',
+    enum: SplitMode,
+  })
+  splitMode?: SplitMode;
+
+  @ApiPropertyOptional({
+    description: 'End date for multi-day expenses',
+    example: '2026-11-05',
+  })
+  expenseEndDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Participants sharing this expense',
+    type: [ParticipantResponseDto],
+  })
+  includedParticipants?: ParticipantResponseDto[];
 
   @ApiProperty({
     description: 'Creation timestamp',

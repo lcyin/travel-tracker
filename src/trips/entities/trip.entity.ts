@@ -13,6 +13,7 @@ import { ItineraryDay } from '../../itinerary/entities/itinerary-day.entity';
 import { PackingItem } from '../../packing/entities/packing-item.entity';
 import { Expense } from '../../expenses/entities/expense.entity';
 import { Budget } from '../../expenses/entities/budget.entity';
+import { TripParticipant } from '../../expenses/entities/trip-participant.entity';
 import { TripStatus, TripClimate, TripType } from '../enums/trip.enums';
 
 @Entity('trips')
@@ -73,6 +74,9 @@ export class Trip {
 
   @OneToMany(() => Budget, (budget) => budget.trip)
   budgets!: Budget[];
+
+  @OneToMany(() => TripParticipant, (participant) => participant.trip)
+  participants!: TripParticipant[];
 
   @CreateDateColumn()
   createdAt!: Date;

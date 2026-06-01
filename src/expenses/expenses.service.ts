@@ -12,6 +12,8 @@ import { DeleteResponseDto } from '../common/dto/delete-response.dto';
 import { Budget } from './entities/budget.entity';
 import { Expense } from './entities/expense.entity';
 import { Receipt } from './entities/receipt.entity';
+import { TripParticipant } from './entities/trip-participant.entity';
+import { ExpenseIncludedParticipant } from './entities/expense-included-participant.entity';
 import { BudgetResponseDto } from './dto/budget-response.dto';
 import { CreateBudgetDto } from './dto/create-budget.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -22,6 +24,8 @@ import { ExpenseSummaryQueryDto } from './dto/expense-summary-query.dto';
 import { ExpenseSummaryResponseDto } from './dto/expense-summary-response.dto';
 import { UpdateBudgetDto } from './dto/update-budget.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { SetExpenseSplitDto } from './dto/set-expense-split.dto';
+import { ParticipantService } from './services/participant.service';
 import { CurrencyConverterService } from './services/currency-converter.service';
 import {
   ExtractedReceipt,
@@ -47,8 +51,13 @@ export class ExpensesService {
     private readonly budgetRepository: Repository<Budget>,
     @InjectRepository(Trip)
     private readonly tripsRepository: Repository<Trip>,
+    @InjectRepository(TripParticipant)
+    private readonly participantRepository: Repository<TripParticipant>,
+    @InjectRepository(ExpenseIncludedParticipant)
+    private readonly eipRepository: Repository<ExpenseIncludedParticipant>,
     private readonly currencyConverter: CurrencyConverterService,
     private readonly ocrService: OcrExtractionService,
+    private readonly participantService: ParticipantService,
   ) {}
 
   async findAll(
@@ -62,6 +71,9 @@ export class ExpensesService {
     const query = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoinAndSelect('expense.receipts', 'receipt')
+      .leftJoinAndSelect('expense.paidByParticipant', 'paidByParticipant')
+      .leftJoinAndSelect('expense.includedParticipants', 'eip')
+      .leftJoinAndSelect('eip.participant', 'eipParticipant')
       .where('expense.tripId = :tripId', { tripId })
       .andWhere('expense.deletedAt IS NULL');
 
@@ -718,6 +730,73 @@ export class ExpensesService {
     } as Expense);
   }
 
+  async setSplit(
+    tripId: string,
+    expenseId: string,
+    userId: string,
+    dto: SetExpenseSplitDto,
+  ): Promise<ExpenseResponseDto> {
+    await this.getTripWithOwnershipCheck(tripId, userId);
+
+    const expense = await this.expenseRepository.findOne({
+      where: { id: expenseId, tripId, deletedAt: IsNull() },
+      relations: ['receipts'],
+    });
+
+    if (!expense) {
+      throw new NotFoundException('Expense not found');
+    }
+
+    // Validate payer belongs to this trip
+    const payer = await this.participantRepository.findOne({
+      where: { id: dto.paidByParticipantId, tripId },
+    });
+
+    if (!payer) {
+      throw new NotFoundException('Payer participant not found in this trip');
+    }
+
+    // Validate all included participants belong to this trip
+    const included = await this.participantRepository
+      .createQueryBuilder('p')
+      .where('p.id IN (:...ids)', { ids: dto.includedParticipantIds })
+      .andWhere('p.tripId = :tripId', { tripId })
+      .getMany();
+
+    if (included.length !== dto.includedParticipantIds.length) {
+      throw new NotFoundException(
+        'One or more included participants not found in this trip',
+      );
+    }
+
+    // Update expense split fields
+    expense.paidByParticipantId = dto.paidByParticipantId;
+    expense.splitMode = dto.splitMode;
+
+    await this.expenseRepository.save(expense);
+
+    // Replace included participants junction records
+    await this.eipRepository.delete({ expenseId });
+
+    const eips = included.map((p) =>
+      this.eipRepository.create({ expenseId, participantId: p.id }),
+    );
+    await this.eipRepository.save(eips);
+
+    // Re-fetch with all relations for response
+    const updated = await this.expenseRepository.findOne({
+      where: { id: expenseId },
+      relations: [
+        'receipts',
+        'paidByParticipant',
+        'includedParticipants',
+        'includedParticipants.participant',
+      ],
+    });
+
+    return this.toExpenseResponse(updated!);
+  }
+
   /**
    * Get trip by ID and verify ownership.
    */
@@ -788,6 +867,16 @@ export class ExpensesService {
       receipt: expense.receipts?.[0]
         ? this.toReceiptResponse(expense.receipts[0])
         : undefined,
+      paidByParticipant: expense.paidByParticipant
+        ? this.participantService.toParticipantResponse(
+            expense.paidByParticipant,
+          )
+        : undefined,
+      splitMode: expense.splitMode as any,
+      expenseEndDate: expense.expenseEndDate,
+      includedParticipants: expense.includedParticipants?.map((eip) =>
+        this.participantService.toParticipantResponse(eip.participant),
+      ),
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     };
