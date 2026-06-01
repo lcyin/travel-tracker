@@ -1,8 +1,103 @@
-## Plan: Trip Cost Splitter Feature
+## Plan: Trip Cost Splitter Feature ✅ Implemented
 
 Extend the existing expenses module with trip participant management, expense splitting metadata, and settlement calculation. Add a new frontend page for the full cost-splitting workflow. Participants are named people (no app account required) with stay dates, enabling fair expense splitting by equal shares or by stay-day proportions.
 
 **Key Decisions**: Named participants (no user accounts), extend expenses module, reuse existing expense entities with new nullable columns, full stack (API + frontend). Existing `ExpenseCategory` enum is reused as-is.
+
+**Status**: Fully shipped and deployed. See `docs/expenses-module.md` for authoritative documentation.
+
+---
+
+### Phase 1: Database Schema (Migration) ✅
+
+**File**: `src/migrations/1780400000000-AddCostSplitterTables.ts`
+
+- **New table `trip_participants`**: id (uuid PK), tripId (FK→trips, CASCADE), name (varchar 100), stayStart (date), stayEnd (date), createdAt, updatedAt
+- **Alter `expenses`**: added nullable columns — `paidByParticipantId` (FK→trip_participants, SET NULL), `splitMode` (varchar 20), `expenseEndDate` (date)
+- **New junction table `expense_included_participants`**: id (uuid PK), expenseId (FK→expenses, CASCADE), participantId (FK→trip_participants, CASCADE), unique on (expenseId, participantId)
+
+---
+
+### Phase 2: Entities & Module Registration ✅
+
+1. `src/expenses/entities/trip-participant.entity.ts` — ManyToOne → Trip
+2. `src/expenses/entities/expense-included-participant.entity.ts` — ManyToOne → Expense + TripParticipant
+3. `src/expenses/entities/expense.entity.ts` — added `paidByParticipantId`, `splitMode`, `expenseEndDate` + relations
+4. `src/trips/entities/trip.entity.ts` — added OneToMany → TripParticipant
+5. `src/expenses/expenses.module.ts` — all new entities registered
+
+---
+
+### Phase 3: DTOs ✅
+
+Created in `src/expenses/dto/`:
+
+- `create-participant.dto.ts` — name, stayStart, stayEnd (stayEnd > stayStart validation)
+- `update-participant.dto.ts` — PartialType of create
+- `participant-response.dto.ts` — full fields including id
+- `set-expense-split.dto.ts` — paidByParticipantId, splitMode (`equal` | `by_stay_days`), includedParticipantIds (uuid[])
+- `settlement-response.dto.ts` — `ParticipantBalanceDto` (paid/share/net), `SettlementPaymentDto` (from/to/amount), `SettlementResponseDto`
+
+Updated:
+
+- `expense-response.dto.ts` — added `paidByParticipant`, `splitMode`, `expenseEndDate`, `includedParticipants: ParticipantResponseDto[]`
+
+---
+
+### Phase 4: Service Layer ✅
+
+1. `src/expenses/services/participant.service.ts` — CRUD with trip ownership validation; cascade-aware delete (nullifies paidByParticipantId on related expenses)
+2. `src/expenses/services/settlement.service.ts` — per-expense share computation (equal + stay-day overlap), per-participant aggregation, greedy settlement minimisation, fallback to equal split when overlap = 0
+3. `src/expenses/expenses.service.ts` — added `setSplit()`; updated `findAll()` query to join `paidByParticipant` and `includedParticipants` relations; response mapper updated
+
+> **Bug fixed**: `findAll` originally only joined `receipts`. Added `leftJoinAndSelect` for `paidByParticipant` and `includedParticipants/eip.participant` so split data is returned on list calls.
+
+---
+
+### Phase 5: Controller & API Endpoints ✅
+
+All routes in `src/expenses/expenses.controller.ts`:
+
+| Method | Route                                                 | Description             |
+| ------ | ----------------------------------------------------- | ----------------------- |
+| POST   | `/trips/:tripId/expenses/participants`                | Create participant      |
+| GET    | `/trips/:tripId/expenses/participants`                | List participants       |
+| GET    | `/trips/:tripId/expenses/participants/:participantId` | Get participant         |
+| PATCH  | `/trips/:tripId/expenses/participants/:participantId` | Update participant      |
+| DELETE | `/trips/:tripId/expenses/participants/:participantId` | Delete participant      |
+| PUT    | `/trips/:tripId/expenses/:id/split`                   | Set/update split config |
+| GET    | `/trips/:tripId/expenses/settlements`                 | Calculate settlements   |
+
+> **Bug fixed**: Static routes (`participants`, `settlements`, `summary`, etc.) were originally declared after `@Get(':id')`, causing NestJS to match e.g. `GET /participants` as `/:id = "participants"` → `QueryFailedError: invalid input syntax for type uuid`. Fixed by moving all static GET routes before the `/:id` wildcard.
+
+---
+
+### Phase 6: Frontend ✅
+
+**`web/cost-splitter.html`** — four sections:
+
+1. **Trip Info** — trip name + base currency
+2. **Participants & Stay Dates** — add form + table with remove action
+   - ✅ **Enhancement**: Date pickers constrained to trip duration via `min`/`max` attributes + client-side guard
+3. **Expenses with splits** — table with Set Split / ✏ Edit Split panel (payer chips, included-participant chips, split mode toggle)
+4. **Summary & Settlements** — per-participant balance table + settlement payment instructions
+   - ✅ **Enhancement**: Each balance row has **▶ Details** toggle showing per-expense breakdown (Date · Description · Total · Individual share · `(paid)` badge). Share calculation mirrors server logic client-side using the already-loaded `expenses` array.
+
+> **Bug fixed**: `computeExpenseShares` was using `eip.participantId` but `includedParticipants` in the response are `ParticipantResponseDto` objects with an `id` field. Also `e.paidByParticipantId` → `e.paidByParticipant?.id`. Fixed both field references.
+
+---
+
+### Phase 7: Swagger & OpenAPI ✅
+
+All new endpoints and DTOs annotated. Run `yarn swagger:generate` to regenerate `openapi.json`.
+
+---
+
+### Relevant Files
+
+**Created**: `1780400000000-AddCostSplitterTables.ts`, `trip-participant.entity.ts`, `expense-included-participant.entity.ts`, `create-participant.dto.ts`, `update-participant.dto.ts`, `participant-response.dto.ts`, `set-expense-split.dto.ts`, `settlement-response.dto.ts`, `participant.service.ts`, `settlement.service.ts`, `cost-splitter.html`
+
+**Modified**: `expense.entity.ts`, `trip.entity.ts`, `expenses.module.ts`, `expenses.controller.ts`, `expenses.service.ts`, `expense-response.dto.ts`, `trip-dashboard.html`
 
 ---
 

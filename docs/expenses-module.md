@@ -45,6 +45,36 @@ The Expenses module tracks trip spending with receipt OCR scanning, automatic cu
 | `rawOcrJson` | JSONB (nullable) | Full Gemini OCR extraction result |
 | `confidenceScore` | numeric(4,3) (nullable) | 1.0 (high), 0.5 (medium), 0.2 (low) |
 
+### TripParticipant
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Auto-generated |
+| `tripId` | UUID (FK → Trip, CASCADE) | Owning trip |
+| `name` | varchar(100) | Display name (no user account required) |
+| `stayStart` | date | First day of this person's stay (ISO 8601) |
+| `stayEnd` | date | Last day of this person's stay (ISO 8601) |
+| `createdAt` | timestamp | — |
+| `updatedAt` | timestamp | — |
+
+### ExpenseIncludedParticipant
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID (PK) | Auto-generated |
+| `expenseId` | UUID (FK → Expense, CASCADE) | Parent expense |
+| `participantId` | UUID (FK → TripParticipant, CASCADE) | Included person |
+
+Unique constraint on `(expenseId, participantId)`.
+
+**Added columns on `expenses`**:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `paidByParticipantId` | UUID (FK → TripParticipant, SET NULL, nullable) | Who paid |
+| `splitMode` | varchar(20) (nullable) | `equal` or `by_stay_days` |
+| `expenseEndDate` | date (nullable) | End date for multi-day expenses (used in stay-day split) |
+
 ### Budget
 
 | Field | Type | Description |
@@ -98,6 +128,20 @@ The Expenses module tracks trip spending with receipt OCR scanning, automatic cu
 | `GET` | `/trips/:tripId/expenses/dashboard` | Combined: summary + budget in one call |
 | `GET` | `/trips/:tripId/expenses/export/csv` | Export all expenses as CSV file |
 | `POST` | `/trips/:tripId/expenses/check-duplicate` | Heuristic duplicate detection |
+
+### Cost Splitter
+
+> **Route ordering note**: All static sub-paths (`participants`, `settlements`, `summary`, `export/csv`, etc.) are declared **before** the `/:id` wildcard in the controller to prevent NestJS routing conflicts.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/trips/:tripId/expenses/participants` | Add a named participant |
+| `GET` | `/trips/:tripId/expenses/participants` | List all participants for the trip |
+| `GET` | `/trips/:tripId/expenses/participants/:participantId` | Get a single participant |
+| `PATCH` | `/trips/:tripId/expenses/participants/:participantId` | Update participant (name / stay dates) |
+| `DELETE` | `/trips/:tripId/expenses/participants/:participantId` | Remove participant (clears split references) |
+| `PUT` | `/trips/:tripId/expenses/:id/split` | Set or update split config for an expense |
+| `GET` | `/trips/:tripId/expenses/settlements` | Calculate who owes whom |
 
 ---
 
@@ -199,7 +243,80 @@ CurrencyConverterService.convert(amount, fromCurrency, toCurrency)
 └── Return { baseAmount, exchangeRate, source, rateAt }
 ```
 
-### 6. Duplicate Detection
+### 6. Cost Splitter — Participant Management
+
+```
+POST /trips/:tripId/expenses/participants  (CreateParticipantDto)
+│
+├── Verify trip ownership
+├── Validate stayEnd > stayStart
+└── Save TripParticipant → return ParticipantResponseDto
+
+DELETE /trips/:tripId/expenses/participants/:participantId
+│
+├── Verify trip ownership
+├── Nullify paidByParticipantId on all related expenses (cascade-safe)
+├── Delete ExpenseIncludedParticipant junction rows
+└── Delete TripParticipant
+```
+
+### 7. Cost Splitter — Set Expense Split
+
+```
+PUT /trips/:tripId/expenses/:id/split  (SetExpenseSplitDto)
+│
+├── Verify trip ownership + expense exists in trip
+├── Verify paidByParticipantId references a participant in this trip
+├── Delete existing ExpenseIncludedParticipant rows for this expense
+├── Create new junction rows for each includedParticipantId
+├── Set expense.paidByParticipantId, splitMode, expenseEndDate
+└── Return updated ExpenseResponseDto (with paidByParticipant + includedParticipants)
+```
+
+### 8. Cost Splitter — Settlement Calculation
+
+```
+GET /trips/:tripId/expenses/settlements
+│
+├── Verify trip ownership
+├── Load all TripParticipants for the trip
+├── Load all expenses with splitMode + paidByParticipantId + includedParticipants
+│   (only expenses where all three are set are included)
+│
+├── For each qualifying expense → computeShares():
+│   ├── splitMode = 'equal':
+│   │   └── share = baseAmount / includedParticipants.length  (per person)
+│   └── splitMode = 'by_stay_days':
+│       ├── Overlap nights = max(0, min(stayEnd, expEnd) − max(stayStart, expStart))
+│       ├── Total nights = Σ overlap nights across included participants
+│       ├── share_i = baseAmount × (nights_i / totalNights)
+│       └── Fallback to equal split when totalNights = 0
+│
+├── Aggregate per participant: paid (Σ expenses they paid), share (Σ their shares)
+├── Net = paid − share  (positive = owed money back, negative = owes others)
+│
+├── Minimize settlements (greedy creditor-debtor matching):
+│   ├── Sort participants into creditors (net > 0) and debtors (net < 0)
+│   └── Greedily match debtor → creditor until all nets reach ~0
+│
+└── Return SettlementResponseDto { balances[], payments[], currency }
+```
+
+**Settlement response shape**:
+```json
+{
+  "currency": "USD",
+  "balances": [
+    { "participant": { "id": "...", "name": "Alice" }, "paid": 300, "share": 150, "net": 150 },
+    { "participant": { "id": "...", "name": "Bob"   }, "paid": 0,   "share": 150, "net": -150 }
+  ],
+  "payments": [
+    { "from": { "name": "Bob" }, "to": { "name": "Alice" }, "amount": 150 }
+  ]
+}
+```
+
+### 9. Duplicate Detection
 
 ```
 POST /trips/:tripId/expenses/check-duplicate  (CreateExpenseDto)
@@ -288,6 +405,27 @@ POST /trips/:tripId/expenses/check-duplicate  (CreateExpenseDto)
 - Parameterized queries throughout (TypeORM query builder)
 - Soft deletes on expenses (`deletedAt` column)
 
+## Cost Splitter Frontend (`web/cost-splitter.html`)
+
+Single-page UI with four sections:
+
+1. **Participants & Stay Dates** — Add form (name, stay start, stay end) + table with remove action.
+   - Date pickers are constrained to the trip's `startDate`/`endDate` via `min`/`max` attributes.
+   - Client-side guard rejects dates outside the trip duration before the API call.
+
+2. **Expenses** — Table of all trip expenses showing split-configured ones first. Each row has a **Set Split / ✏ Edit Split** button that opens a bottom-sheet panel with:
+   - Payer chip selection
+   - Included participants multi-select chips
+   - Split mode toggle (`Equal` / `By stay days`)
+
+3. **Summary & Settlements** — Loaded from `GET /settlements`.
+   - **Balances table**: Person · Paid · Share · Net (color-coded positive/negative).
+   - Each balance row has a **▶ Details** button that expands an inline sub-table showing every split expense this person is involved in, with: Date · Description · Total amount · Their individual share · `(paid)` badge if they were the payer.
+   - Client-side share computation mirrors the server logic (equal or by-stay-days overlap nights) so the breakdown is available without an extra API call.
+   - **Settlements list**: `💸 A pays B $X` cards, or "✓ Everyone is settled."
+
+---
+
 ## Known Limitations
 
 1. **File storage**: Receipt files generate a `fileUrl` path but are not persisted to disk or cloud storage
@@ -295,3 +433,4 @@ POST /trips/:tripId/expenses/check-duplicate  (CreateExpenseDto)
 3. **Budget category limits**: Stored but not enforced — no validation during expense creation
 4. **Line items**: Stored in `rawOcrJson` only — no queryable `LineItem` entity
 5. **Receipt thumbnails**: `thumbnailUrl` field exists but is never generated
+6. **Split currency**: Settlement totals use `trip.baseCurrency`; expenses not converted to base currency are excluded from settlement calculation
