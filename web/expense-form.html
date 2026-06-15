@@ -30,7 +30,10 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="currency">Currency *</label>
-            <input class="form-input" id="currency" required maxlength="3" placeholder="USD" style="text-transform:uppercase">
+            <!-- <input class="form-input" id="currency" required maxlength="3" placeholder="USD" style="text-transform:uppercase"> -->
+            <select class="form-select" id="currency" required style="width:120px">
+              <option value="">Select...</option>
+            </select>
           </div>
         </div>
         <div class="form-row">
@@ -132,6 +135,24 @@
         }
       } catch (err) { showAlert(document.getElementById('error'), err.message); }
     }
+
+    async function loadCurrencies() {
+      try {
+        const currencies = await apiJson('/currency');
+        const currencyInput = document.getElementById('currency');
+        currencies.forEach(c => {
+          const option = document.createElement('option');
+          option.value = c.code;
+          option.textContent = `${c.code} - ${c.currency}`;
+          currencyInput.appendChild(option);
+        });
+      } catch (err) {
+        showAlert(document.getElementById('error'), 'Failed to load currencies');
+        console.error('Failed to load currencies', err);
+      }
+    }
+
+    loadCurrencies();
 
     // Receipt scan
     const scanFile = document.getElementById('scan-file');

@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module';
 import { ItineraryModule } from './itinerary/itinerary.module';
 import { PackingModule } from './packing/packing.module';
 import { TripsModule } from './trips/trips.module';
+import { CurrencyModule } from './currency/currency.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { TripsModule } from './trips/trips.module';
     PackingModule,
     ItineraryModule,
     HealthModule,
+    CurrencyModule,
   ],
 })
 export class AppModule {}
